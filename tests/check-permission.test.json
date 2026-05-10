@@ -1,0 +1,49 @@
+{
+  "api": "POST /api/admin-account/check-permission",
+  "cases": [
+    {
+      "name": "超级管理员拥有任意权限",
+      "actor": "admin",
+      "depends_on": [],
+      "method": "POST",
+      "path": "/api/admin-account/check-permission",
+      "body": {"session_token": "${admin_session_token}", "permission_code": "system.manage"},
+      "expect_status": 200,
+      "expect_business_status": 0,
+      "expect_field": {"status": 0, "data.allowed": true, "data.is_super_admin": true}
+    },
+    {
+      "name": "普通账号无未命中权限",
+      "actor": "admin",
+      "depends_on": [],
+      "method": "POST",
+      "path": "/api/admin-account/check-permission",
+      "body": {"session_token": "${operator_session_token}", "permission_code": "missing.permission"},
+      "expect_status": 200,
+      "expect_business_status": 0,
+      "expect_field": {"status": 0, "data.allowed": false, "data.is_super_admin": false}
+    },
+    {
+      "name": "会话过期返回 2272",
+      "actor": "anonymous",
+      "depends_on": [],
+      "method": "POST",
+      "path": "/api/admin-account/check-permission",
+      "body": {"session_token": "expired_session_token", "permission_code": "system.manage"},
+      "expect_status": 200,
+      "expect_business_status": 2272,
+      "expect_field": {"status": 2272}
+    },
+    {
+      "name": "权限点格式非法返回 2273",
+      "actor": "admin",
+      "depends_on": [],
+      "method": "POST",
+      "path": "/api/admin-account/check-permission",
+      "body": {"session_token": "${admin_session_token}", "permission_code": "Bad Permission!"},
+      "expect_status": 200,
+      "expect_business_status": 2273,
+      "expect_field": {"status": 2273}
+    }
+  ]
+}

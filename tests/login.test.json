@@ -1,0 +1,62 @@
+{
+  "api": "POST /api/admin-account/login",
+  "cases": [
+    {
+      "name": "超级管理员登录成功",
+      "actor": "anonymous",
+      "depends_on": [],
+      "method": "POST",
+      "path": "/api/admin-account/login",
+      "body": {"account": "${range_tag}root", "password": "Root@123456"},
+      "expect_status": 200,
+      "expect_business_status": 0,
+      "expect_field": {"status": 0, "data.account.account_id": "${admin_account_id}", "data.account.is_super_admin": true, "data.ttl_seconds": 28800},
+      "expect_contains": "session_token"
+    },
+    {
+      "name": "普通后台账号登录成功",
+      "actor": "anonymous",
+      "depends_on": [],
+      "method": "POST",
+      "path": "/api/admin-account/login",
+      "body": {"account": "${range_tag}operator", "password": "Operator@123"},
+      "expect_status": 200,
+      "expect_business_status": 0,
+      "expect_field": {"status": 0, "data.account.account_id": "${operator_account_id}", "data.account.is_super_admin": false},
+      "expect_contains": "session_token"
+    },
+    {
+      "name": "密码错误返回 2202",
+      "actor": "anonymous",
+      "depends_on": [],
+      "method": "POST",
+      "path": "/api/admin-account/login",
+      "body": {"account": "${range_tag}root", "password": "bad-password"},
+      "expect_status": 200,
+      "expect_business_status": 2202,
+      "expect_field": {"status": 2202}
+    },
+    {
+      "name": "账号格式非法返回 2201",
+      "actor": "anonymous",
+      "depends_on": [],
+      "method": "POST",
+      "path": "/api/admin-account/login",
+      "body": {"account": "ab", "password": "Root@123456"},
+      "expect_status": 200,
+      "expect_business_status": 2201,
+      "expect_field": {"status": 2201}
+    },
+    {
+      "name": "禁用账号登录返回 2203",
+      "actor": "anonymous",
+      "depends_on": [],
+      "method": "POST",
+      "path": "/api/admin-account/login",
+      "body": {"account": "${range_tag}disabled_admin", "password": "Root@123456"},
+      "expect_status": 200,
+      "expect_business_status": 2203,
+      "expect_field": {"status": 2203}
+    }
+  ]
+}

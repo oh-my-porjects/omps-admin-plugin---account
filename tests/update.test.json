@@ -1,0 +1,73 @@
+{
+  "api": "PUT /api/admin-account/update",
+  "cases": [
+    {
+      "name": "未登录更新账号返回 2251",
+      "actor": "anonymous",
+      "depends_on": [],
+      "method": "PUT",
+      "path": "/api/admin-account/update",
+      "body": {"account_id": "${operator_account_id}", "status": "enabled", "role_ids": []},
+      "expect_status": 200,
+      "expect_business_status": 2251,
+      "expect_field": {"status": 2251}
+    },
+    {
+      "name": "超级管理员更新普通账号成功",
+      "actor": "admin",
+      "depends_on": [],
+      "method": "PUT",
+      "path": "/api/admin-account/update",
+      "body": {"operator_session_token": "${admin_session_token}", "account_id": "${operator_account_id}", "status": "enabled", "role_ids": ["00000000-0000-0000-0000-000000000003"]},
+      "expect_status": 200,
+      "expect_business_status": 0,
+      "expect_field": {"status": 0, "data.account": "${range_tag}operator", "data.status": "enabled"},
+      "side_effect_tables": ["admin_accounts_accounts", "admin_accounts_account_roles"]
+    },
+    {
+      "name": "超级管理员清空普通账号角色成功",
+      "actor": "admin",
+      "depends_on": [],
+      "method": "PUT",
+      "path": "/api/admin-account/update",
+      "body": {"operator_session_token": "${admin_session_token}", "account_id": "${operator_account_id}", "status": "enabled", "role_ids": []},
+      "expect_status": 200,
+      "expect_business_status": 0,
+      "expect_field": {"status": 0, "data.account": "${range_tag}operator", "data.status": "enabled"},
+      "side_effect_tables": ["admin_accounts_accounts", "admin_accounts_account_roles"]
+    },
+    {
+      "name": "状态非法返回 2255",
+      "actor": "admin",
+      "depends_on": [],
+      "method": "PUT",
+      "path": "/api/admin-account/update",
+      "body": {"operator_session_token": "${admin_session_token}", "account_id": "${operator_account_id}", "status": "bad", "role_ids": []},
+      "expect_status": 200,
+      "expect_business_status": 2255,
+      "expect_field": {"status": 2255}
+    },
+    {
+      "name": "账号 ID 非法返回 2253",
+      "actor": "admin",
+      "depends_on": [],
+      "method": "PUT",
+      "path": "/api/admin-account/update",
+      "body": {"operator_session_token": "${admin_session_token}", "account_id": "bad-id", "status": "enabled", "role_ids": []},
+      "expect_status": 200,
+      "expect_business_status": 2253,
+      "expect_field": {"status": 2253}
+    },
+    {
+      "name": "普通账号无账号管理权限返回 2252",
+      "actor": "admin",
+      "depends_on": [],
+      "method": "PUT",
+      "path": "/api/admin-account/update",
+      "body": {"operator_session_token": "${operator_session_token}", "account_id": "${admin_account_id}", "status": "enabled", "role_ids": ["00000000-0000-0000-0000-000000000001"]},
+      "expect_status": 200,
+      "expect_business_status": 2252,
+      "expect_field": {"status": 2252}
+    }
+  ]
+}

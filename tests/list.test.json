@@ -1,0 +1,67 @@
+{
+  "api": "GET /api/admin-account/list",
+  "cases": [
+    {
+      "name": "未登录查询账号列表返回 2231",
+      "actor": "anonymous",
+      "depends_on": [],
+      "method": "GET",
+      "path": "/api/admin-account/list?page=1&page_size=20",
+      "expect_status": 200,
+      "expect_business_status": 2231,
+      "expect_field": {"status": 2231}
+    },
+    {
+      "name": "超级管理员分页查询账号列表成功",
+      "actor": "admin",
+      "depends_on": [],
+      "method": "GET",
+      "path": "/api/admin-account/list?page=1&page_size=20&operator_session_token=${admin_session_token}",
+      "expect_status": 200,
+      "expect_business_status": 0,
+      "expect_field": {"status": 0, "data.page": 1, "data.page_size": 20},
+      "expect_contains": "${range_tag}root"
+    },
+    {
+      "name": "按状态和关键词筛选成功",
+      "actor": "admin",
+      "depends_on": [],
+      "method": "GET",
+      "path": "/api/admin-account/list?page=1&page_size=10&status=enabled&keyword=operator&operator_session_token=${admin_session_token}",
+      "expect_status": 200,
+      "expect_business_status": 0,
+      "expect_field": {"status": 0, "data.page": 1},
+      "expect_contains": "${range_tag}operator"
+    },
+    {
+      "name": "普通账号无账号管理权限返回 2232",
+      "actor": "admin",
+      "depends_on": [],
+      "method": "GET",
+      "path": "/api/admin-account/list?page=1&page_size=20&operator_session_token=${operator_session_token}",
+      "expect_status": 200,
+      "expect_business_status": 2232,
+      "expect_field": {"status": 2232}
+    },
+    {
+      "name": "分页非法返回 2233",
+      "actor": "admin",
+      "depends_on": [],
+      "method": "GET",
+      "path": "/api/admin-account/list?page=0&page_size=101&operator_session_token=${admin_session_token}",
+      "expect_status": 200,
+      "expect_business_status": 2233,
+      "expect_field": {"status": 2233}
+    },
+    {
+      "name": "状态非法返回 2234",
+      "actor": "admin",
+      "depends_on": [],
+      "method": "GET",
+      "path": "/api/admin-account/list?page=1&page_size=20&status=bad&operator_session_token=${admin_session_token}",
+      "expect_status": 200,
+      "expect_business_status": 2234,
+      "expect_field": {"status": 2234}
+    }
+  ]
+}
