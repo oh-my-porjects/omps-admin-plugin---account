@@ -50,5 +50,4 @@ tables:
     range_filter: "account_id IN ('00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000002', '00000000-0000-0000-0000-000000000003') OR account_id IN (SELECT id FROM admin_accounts_accounts WHERE account LIKE '{range_tag}%')"
     snapshot_view: [id, account_id, role_id, created_at]
     snapshot_summary: "account_id, role_id"
-    seed_data:
-      - {id: "00000000-0000-0000-0000-000000000101", account_id: "00000000-0000-0000-0000-000000000002", role_id: "00000000-0000-0000-0000-000000000003", created_at: "2026-05-10T00:00:00Z"}
+    seed_data: []
