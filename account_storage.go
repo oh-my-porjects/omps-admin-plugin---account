@@ -2,7 +2,9 @@ package main
 
 import (
 	"context"
+	"crypto/sha256"
 	"database/sql"
+	"encoding/hex"
 	"errors"
 	"sort"
 	"strconv"
@@ -10,7 +12,6 @@ import (
 	"time"
 
 	"github.com/redis/go-redis/v9"
-	"golang.org/x/crypto/bcrypt"
 )
 
 var errAccountNotFound = errors.New("account not found")
@@ -393,15 +394,13 @@ func sessionRedisKey(token string) string {
 }
 
 func hashPassword(password string) (string, error) {
-	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
-	if err != nil {
-		return "", err
-	}
-	return string(hash), nil
+	sum := sha256.Sum256([]byte(password))
+	return hex.EncodeToString(sum[:]), nil
 }
 
 func verifyPassword(hash, password string) bool {
-	return bcrypt.CompareHashAndPassword([]byte(hash), []byte(password)) == nil
+	expected, err := hashPassword(password)
+	return err == nil && hash == expected
 }
 
 func accountToResponse(acc accountRecord, roles []string) accountResponse {

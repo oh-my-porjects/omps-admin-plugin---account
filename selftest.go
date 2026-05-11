@@ -289,6 +289,9 @@ func lookupRouteHandler(method, path string) http.HandlerFunc {
 	if h, ok := Routes[path]; ok {
 		return h
 	}
+	if q := strings.IndexByte(path, '?'); q >= 0 {
+		return lookupRouteHandler(method, path[:q])
+	}
 	// 尝试 "GET /api/.../{id}" 这种 pattern：不严格匹配，只兜底
 	for key, h := range Routes {
 		k := key

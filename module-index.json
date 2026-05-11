@@ -1,0 +1,97 @@
+{
+  "name": "admin_account",
+  "title": "后台账号模块 — 负责后台运营账号的登录、当前账号信息查看、账号管理、角色绑定、权限范围识别和超级管理员识别。",
+  "summary": "后台账号模块 — 负责后台运营账号的登录、当前账号信息查看、账号管理、角色绑定、权限范围识别和超级管理员识别。",
+  "path": "modules/admin_account",
+  "owner_tables": [],
+  "public_apis": [
+    {
+      "method": "POST",
+      "path": "/api/admin-account/login",
+      "title": "后台账号登录"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin-account/me",
+      "title": "查询当前后台账号"
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin-account/create",
+      "title": "创建后台账号"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin-account/list",
+      "title": "查询后台账号列表"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin-account/detail",
+      "title": "查询后台账号详情"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/admin-account/update",
+      "title": "更新后台账号"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/admin-account/reset-password",
+      "title": "重置后台账号密码"
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin-account/check-permission",
+      "title": "检查后台权限"
+    },
+    {
+      "method": "POST",
+      "path": "/_internal/method-call/admin_account",
+      "title": "内部方法调用"
+    },
+    {
+      "method": "POST",
+      "path": "/_internal/scheduled-trigger/admin_account",
+      "title": "内部定时任务触发"
+    }
+  ],
+  "admin_apis": [],
+  "dependencies": [],
+  "configs": [],
+  "env_vars": [
+    {
+      "key": "ADMIN_ACCOUNTS_SESSION_TTL_SECONDS",
+      "desc": "后台账号登录会话有效期（秒）",
+      "required": false,
+      "default": "28800"
+    }
+  ],
+  "entry_files": [
+    "main.go"
+  ],
+  "hot_reload": {
+    "enabled": true,
+    "safe": true,
+    "state_strategy": "externalized",
+    "has_background_workers": false,
+    "has_in_memory_state": false,
+    "shutdown_requirements": [],
+    "reload_risks": []
+  },
+  "background_tasks": {
+    "has_workers": false,
+    "worker_types": [],
+    "requires_unloading_state": false,
+    "shutdown_timeout_ms": 1000,
+    "exit_policy": "cooperative_cancel",
+    "allows_new_work_while_unloading": false
+  },
+  "related_requirements": [
+    4
+  ],
+  "last_generated_at": "2026-05-11T06:36:47Z",
+  "warnings": [
+    "缺少 schema.json，表 ownership 未能确定"
+  ]
+}
