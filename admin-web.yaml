@@ -1,8 +1,3 @@
-# account 公共模块 admin-web spec（task/inner_plugin.md §4.1）
-#
-# 反馈纠错链路（J 方案）AI 改这份 yaml
-# 平台 admin-server 推送给所有引用项目的 admin-menu plugin 作为 spec 元数据
-
 module: account
 title: 账号管理
 icon: user
@@ -39,6 +34,9 @@ views:
           false: 否
       - field: created_at
         title: 创建时间
+        render: datetime
+      - field: last_login_at
+        title: 最后登录时间
         render: datetime
     actions:
       - key: create
