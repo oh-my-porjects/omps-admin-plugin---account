@@ -119,18 +119,18 @@ var Plugin = &AdminAccountPlugin{}
 // 原因：Runtime 用全局 ServeMux 按路径精确分发请求。如果插件写
 // ServeHTTP 或内部 mux，多个插件之间会互相拦截请求导致 404。
 var Routes = map[string]http.HandlerFunc{
-	"POST /api/admin-account/login":            handleLogin,
-	"GET /api/admin-account/me":                handleMe,
-	"POST /api/admin-account/create":           handleAccountCreate,
-	"GET /api/admin-account/list":              handleAccountList,
-	"GET /api/admin-account/detail":            handleAccountDetail,
-	"PUT /api/admin-account/update":            handleAccountUpdate,
-	"PUT /api/admin-account/reset-password":    handleResetPassword,
-	"POST /api/admin-account/check-permission": handleCheckPermission,
+	"POST /api/account/login":            handleLogin,
+	"GET /api/account/me":                handleMe,
+	"POST /api/account/create":           handleAccountCreate,
+	"GET /api/account/list":              handleAccountList,
+	"GET /api/account/detail":            handleAccountDetail,
+	"PUT /api/account/update":            handleAccountUpdate,
+	"PUT /api/account/reset-password":    handleResetPassword,
+	"POST /api/account/check-permission": handleCheckPermission,
 	// 前台接口示例（以 /api/ 开头）
-	"GET /api/admin_account/hello": handleHello,
+	"GET /api/account/hello": handleHello,
 	// 后台管理接口示例（以 /{admin_prefix}/api/ 开头，部署时替换为项目 UUID）
-	"POST /{admin_prefix}/api/admin_account/admin/ping": handleAdminPing,
+	"POST /{admin_prefix}/api/account/admin/ping": handleAdminPing,
 	// 注：内部自测端点 POST /_internal/selftest 由 selftest.go 在 init() 时
 	// 注册进来，避免 var Routes 初始化循环依赖（selftest 需要回查 Routes）
 }
@@ -214,7 +214,7 @@ var version = "dev"
 
 func main() {}
 
-func (p *AdminAccountPlugin) Name() string    { return "admin_account" }
+func (p *AdminAccountPlugin) Name() string    { return "account" }
 func (p *AdminAccountPlugin) Version() string { return version }
 
 func (p *AdminAccountPlugin) Init(ctx PluginContext) error {
