@@ -127,6 +127,9 @@ var Routes = map[string]http.HandlerFunc{
 	"PUT /api/account/update":            handleAccountUpdate,
 	"PUT /api/account/reset-password":    handleResetPassword,
 	"POST /api/account/check-permission": handleCheckPermission,
+	// 临时超管账号机制（task/inner_plugin.md §4.4 + §6）
+	// admin-server 调（X-Internal-Token 鉴权），外部访问 401
+	"POST /api/account/_create-temporary-admin": handleCreateTemporaryAdmin,
 	// 前台接口示例（以 /api/ 开头）
 	"GET /api/account/hello": handleHello,
 	// 后台管理接口示例（以 /{admin_prefix}/api/ 开头，部署时替换为项目 UUID）
@@ -138,6 +141,12 @@ var Routes = map[string]http.HandlerFunc{
 // handleHello 是包级 handler，通过全局 Plugin 变量访问插件实例
 func handleHello(w http.ResponseWriter, r *http.Request) {
 	Plugin.handleHello(w, r)
+}
+
+// handleCreateTemporaryAdmin 包级 handler，包装到 Plugin 实例方法
+// task/inner_plugin.md §6.2 临时超管账号生成接口
+func handleCreateTemporaryAdmin(w http.ResponseWriter, r *http.Request) {
+	Plugin.handleCreateTemporaryAdmin(w, r)
 }
 
 func handleAdminPing(w http.ResponseWriter, r *http.Request) {
@@ -242,8 +251,9 @@ func (p *AdminAccountPlugin) Init(ctx PluginContext) error {
 		p.logger = slog.Default()
 	}
 	p.logger.Info("插件初始化", "name", p.Name(), "version", p.Version())
-	// 后台 worker 启动示例（见文件顶部 PluginContext 注释）：
-	//   go p.runTicker()
+	// 临时超管账号过期 worker（task/inner_plugin.md §6.3）
+	// 每分钟扫一次过期账号置 status=disabled，记录保留下次复用
+	go p.startTemporaryAdminWorker(ctx.LifecycleCtx)
 	return nil
 }
 

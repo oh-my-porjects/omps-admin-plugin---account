@@ -26,22 +26,33 @@ func (p *AdminAccountPlugin) initStorage(ctx context.Context) error {
 	}
 	for _, stmt := range []string{
 		`CREATE EXTENSION IF NOT EXISTS pgcrypto`,
-		`CREATE TABLE IF NOT EXISTS admin_accounts_accounts (
+		`CREATE TABLE IF NOT EXISTS account_accounts (
 			id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 			account TEXT NOT NULL UNIQUE,
 			password_hash TEXT NOT NULL,
 			status TEXT NOT NULL DEFAULT 'enabled',
 			is_super_admin BOOLEAN NOT NULL DEFAULT FALSE,
+			is_temporary BOOLEAN NOT NULL DEFAULT FALSE,
+			expires_at TIMESTAMPTZ,
 			created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
 			updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 		)`,
-		`CREATE TABLE IF NOT EXISTS admin_accounts_account_roles (
+		// 兼容老表：把 is_temporary / expires_at 字段补上
+		`ALTER TABLE account_accounts ADD COLUMN IF NOT EXISTS is_temporary BOOLEAN NOT NULL DEFAULT FALSE`,
+		`ALTER TABLE account_accounts ADD COLUMN IF NOT EXISTS expires_at TIMESTAMPTZ`,
+		`CREATE TABLE IF NOT EXISTS account_role_bindings (
 			id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-			account_id UUID NOT NULL REFERENCES admin_accounts_accounts(id) ON DELETE CASCADE,
-			role_id UUID NOT NULL REFERENCES admin_roles_roles(id),
+			account_id UUID NOT NULL REFERENCES account_accounts(id) ON DELETE CASCADE,
+			role_id UUID NOT NULL,
 			created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
 			UNIQUE (account_id, role_id)
 		)`,
+		// 临时超管账号种子记录（task/inner_plugin.md §4.4 § §6.1）
+		// 项目级唯一一条 is_temporary=true 的记录，初始 disabled
+		// admin-server 调 _create-temporary-admin 接口时只重置 account/password_hash/status/expires_at，ID 永远不变
+		`INSERT INTO account_accounts (id, account, password_hash, status, is_super_admin, is_temporary)
+		 VALUES ('00000000-0000-0000-0000-0000000000fe', '__temporary_super_admin_seed__', '', 'disabled', TRUE, TRUE)
+		 ON CONFLICT (account) DO NOTHING`,
 	} {
 		if _, err := p.db.ExecContext(ctx, stmt); err != nil {
 			return err
@@ -99,7 +110,7 @@ func (p *AdminAccountPlugin) queryAccount(ctx context.Context, where string, arg
 	var acc accountRecord
 	err := p.db.QueryRowContext(ctx, `
 		SELECT id::text, account, password_hash, status, is_super_admin, created_at, updated_at
-		FROM admin_accounts_accounts WHERE `+where, arg).
+		FROM account_accounts WHERE `+where, arg).
 		Scan(&acc.ID, &acc.Username, &acc.PasswordHash, &acc.Status, &acc.IsSuperAdmin, &acc.CreatedAt, &acc.UpdatedAt)
 	if sqlNoRows(err) {
 		return accountRecord{}, false, nil
@@ -116,7 +127,7 @@ func (p *AdminAccountPlugin) accountRoleIDs(ctx context.Context, accountID strin
 		defer p.mu.Unlock()
 		return append([]string(nil), p.roles[accountID]...), nil
 	}
-	rows, err := p.db.QueryContext(ctx, "SELECT role_id::text FROM admin_accounts_account_roles WHERE account_id=$1 ORDER BY role_id", accountID)
+	rows, err := p.db.QueryContext(ctx, "SELECT role_id::text FROM account_role_bindings WHERE account_id=$1 ORDER BY role_id", accountID)
 	if err != nil {
 		return nil, err
 	}
@@ -147,7 +158,7 @@ func (p *AdminAccountPlugin) createAccount(ctx context.Context, account, passwor
 
 		var acc accountRecord
 		err = tx.QueryRowContext(ctx, `
-			INSERT INTO admin_accounts_accounts (account, password_hash, status, is_super_admin)
+			INSERT INTO account_accounts (account, password_hash, status, is_super_admin)
 			VALUES ($1, $2, $3, FALSE)
 			RETURNING id::text, account, password_hash, status, is_super_admin, created_at, updated_at`,
 			account, passwordHash, status).
@@ -183,13 +194,13 @@ func (p *AdminAccountPlugin) listAccounts(ctx context.Context, status, keyword s
 			where += " AND lower(account) LIKE $" + strconv.Itoa(len(args))
 		}
 		var total int
-		if err := p.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM admin_accounts_accounts WHERE "+where, args...).Scan(&total); err != nil {
+		if err := p.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM account_accounts WHERE "+where, args...).Scan(&total); err != nil {
 			return nil, 0, err
 		}
 		args = append(args, pageSize, (page-1)*pageSize)
 		rows, err := p.db.QueryContext(ctx, `
 			SELECT id::text, account, password_hash, status, is_super_admin, created_at, updated_at
-			FROM admin_accounts_accounts WHERE `+where+` ORDER BY created_at DESC LIMIT $`+strconv.Itoa(len(args)-1)+` OFFSET $`+strconv.Itoa(len(args)), args...)
+			FROM account_accounts WHERE `+where+` ORDER BY created_at DESC LIMIT $`+strconv.Itoa(len(args)-1)+` OFFSET $`+strconv.Itoa(len(args)), args...)
 		if err != nil {
 			return nil, 0, err
 		}
@@ -243,7 +254,7 @@ func (p *AdminAccountPlugin) updateAccount(ctx context.Context, accountID, statu
 
 		var acc accountRecord
 		err = tx.QueryRowContext(ctx, `
-			UPDATE admin_accounts_accounts SET status=$2, updated_at=now()
+			UPDATE account_accounts SET status=$2, updated_at=now()
 			WHERE id=$1
 			RETURNING id::text, account, password_hash, status, is_super_admin, created_at, updated_at`, accountID, status).
 			Scan(&acc.ID, &acc.Username, &acc.PasswordHash, &acc.Status, &acc.IsSuperAdmin, &acc.CreatedAt, &acc.UpdatedAt)
@@ -293,11 +304,11 @@ func (p *AdminAccountPlugin) replaceAccountRoles(ctx context.Context, accountID 
 }
 
 func (p *AdminAccountPlugin) replaceAccountRolesTx(ctx context.Context, tx *sql.Tx, accountID string, roleIDs []string) error {
-	if _, err := tx.ExecContext(ctx, "DELETE FROM admin_accounts_account_roles WHERE account_id=$1", accountID); err != nil {
+	if _, err := tx.ExecContext(ctx, "DELETE FROM account_role_bindings WHERE account_id=$1", accountID); err != nil {
 		return err
 	}
 	for _, roleID := range roleIDs {
-		if _, err := tx.ExecContext(ctx, "INSERT INTO admin_accounts_account_roles (account_id, role_id) VALUES ($1, $2)", accountID, roleID); err != nil {
+		if _, err := tx.ExecContext(ctx, "INSERT INTO account_role_bindings (account_id, role_id) VALUES ($1, $2)", accountID, roleID); err != nil {
 			return err
 		}
 	}
@@ -312,7 +323,7 @@ func (p *AdminAccountPlugin) resetPassword(ctx context.Context, accountID, newPa
 	if p.db != nil {
 		var acc accountRecord
 		err := p.db.QueryRowContext(ctx, `
-			UPDATE admin_accounts_accounts SET password_hash=$2, updated_at=now()
+			UPDATE account_accounts SET password_hash=$2, updated_at=now()
 			WHERE id=$1
 			RETURNING id::text, account, password_hash, status, is_super_admin, created_at, updated_at`,
 			accountID, passwordHash).
