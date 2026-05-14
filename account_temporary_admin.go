@@ -22,8 +22,6 @@ import (
 	"os"
 	"strings"
 	"time"
-
-	"golang.org/x/crypto/bcrypt"
 )
 
 // 固定的临时超管账号 ID（跟 account_storage.go init 时的种子记录对齐）
@@ -66,7 +64,8 @@ func (p *AdminAccountPlugin) handleCreateTemporaryAdmin(w http.ResponseWriter, r
 		writeJSON(w, 2403, nil, "生成密码失败")
 		return
 	}
-	passwordHash, err := bcrypt.GenerateFromPassword([]byte(plainPassword), bcrypt.DefaultCost)
+	// 复用模块原生 hashPassword（sha256 hex），跟 verifyPassword 兼容
+	passwordHash, err := hashPassword(plainPassword)
 	if err != nil {
 		writeJSON(w, 2403, nil, "密码加密失败")
 		return
@@ -85,7 +84,7 @@ func (p *AdminAccountPlugin) handleCreateTemporaryAdmin(w http.ResponseWriter, r
 		       expires_at = $3,
 		       updated_at = now()
 		 WHERE id = $4
-	`, newAccount, string(passwordHash), expiresAt, temporarySuperAdminSeedID)
+	`, newAccount, passwordHash, expiresAt, temporarySuperAdminSeedID)
 	if err != nil {
 		writeJSON(w, 2404, nil, "更新临时超管账号失败: "+err.Error())
 		return
