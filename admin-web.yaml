@@ -1,0 +1,61 @@
+# account 公共模块 admin-web spec（task/inner_plugin.md §4.1）
+#
+# 反馈纠错链路（J 方案）AI 改这份 yaml
+# 平台 admin-server 推送给所有引用项目的 admin-menu plugin 作为 spec 元数据
+
+module: account
+title: 账号管理
+icon: user
+
+menu:
+  - key: accounts
+    title: 账号列表
+    view: account_list
+  - key: roles
+    title: 账号角色绑定
+    view: account_role_binding
+
+views:
+  - key: account_list
+    type: table
+    title: 账号
+    api: GET /api/account/list
+    columns:
+      - field: id
+        title: ID
+      - field: account
+        title: 账号名
+      - field: status
+        title: 状态
+        render: enum
+        enum:
+          enabled: 启用
+          disabled: 禁用
+      - field: is_super_admin
+        title: 超管
+        render: enum
+        enum:
+          true: 是
+          false: 否
+      - field: created_at
+        title: 创建时间
+        render: datetime
+    actions:
+      - key: create
+        type: page
+        title: 新建账号
+        api: POST /api/account/create
+      - key: reset_pwd
+        type: row
+        title: 重置密码
+        api: POST /api/account/{id}/reset-password
+      - key: toggle_ban
+        type: row
+        title: 启用/禁用
+        api: POST /api/account/{id}/toggle-ban
+        danger: true
+
+  - key: account_role_binding
+    type: detail
+    title: 账号角色绑定
+    api: GET /api/account/role-bindings
