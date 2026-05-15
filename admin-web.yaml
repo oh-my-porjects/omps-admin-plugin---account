@@ -13,7 +13,7 @@ menu:
 views:
   - key: account_list
     type: table
-    title: 账号
+    title: 平台账号管理
     api: GET /api/account/list
     columns:
       - field: id
