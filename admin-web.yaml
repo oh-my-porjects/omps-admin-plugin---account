@@ -1,14 +1,19 @@
-module: account
-title: 账号管理
-icon: user
+# account 公共模块完整 admin-web spec（task/inner_plugin.md §5.2）
 
-menu:
+module: account
+module_title: 账号管理
+
+menus:
   - key: accounts
     title: 账号列表
-    view: account_list
+    icon: user
+    roles: [admin, developer, operator]
+    views: [account_list]
   - key: roles
     title: 账号角色绑定
-    view: account_role_binding
+    icon: team
+    roles: [admin, developer]
+    views: [account_role_binding]
 
 views:
   - key: account_list
@@ -30,8 +35,8 @@ views:
         title: 超管
         render: enum
         enum:
-          true: 是
-          false: 否
+          "true": 是
+          "false": 否
       - field: created_at
         title: 创建时间
         render: datetime
@@ -57,3 +62,17 @@ views:
     type: detail
     title: 账号角色绑定
     api: GET /api/account/role-bindings
+    fields:
+      - field: account_id
+        title: 账号 ID
+      - field: roles
+        title: 已绑定角色
+        render: json
+
+roles:
+  - code: admin
+    title: 超级管理员
+  - code: developer
+    title: 开发者
+  - code: operator
+    title: 运维
