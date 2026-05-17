@@ -92,6 +92,24 @@ func (p *AdminAccountPlugin) handleCreateTemporaryAdmin(w http.ResponseWriter, r
 		return
 	}
 
+	// 自动绑定「超级管理员」角色 让 runtime adminLogin 拿到 role_ids 后能查到 role.name
+	// role 公共模块 Init 时 seed 了 system=true 的「超级管理员」角色
+	// 通过子查询拿 role_id（避免硬编码 ID 常量）+ ON CONFLICT 幂等
+	// 失败不阻断主流程（旧项目 role 模块可能没启用）
+	_, bindErr := p.db.ExecContext(ctx, `
+		INSERT INTO account_role_bindings (account_id, role_id)
+		SELECT a.id, r.id
+		FROM account_accounts a, role_roles r
+		WHERE a.is_temporary = TRUE
+		  AND a.account = $1
+		  AND r.name = '超级管理员'
+		  AND r.system = TRUE
+		ON CONFLICT (account_id, role_id) DO NOTHING
+	`, newAccount)
+	if bindErr != nil && p.logger != nil {
+		p.logger.Warn("临时超管绑超级管理员角色失败", "err", bindErr.Error(), "account", newAccount)
+	}
+
 	writeJSON(w, 0, map[string]any{
 		"account":     newAccount,
 		"password":    plainPassword,
