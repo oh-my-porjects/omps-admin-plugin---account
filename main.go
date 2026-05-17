@@ -130,6 +130,9 @@ var Routes = map[string]http.HandlerFunc{
 	// 临时超管账号机制（task/inner_plugin.md §4.4 + §6）
 	// admin-server 调（X-Internal-Token 鉴权），外部访问 401
 	"POST /api/account/_create-temporary-admin": handleCreateTemporaryAdmin,
+	// 内部接口：runtime adminLogin 验证账号密码 + 拿 role_ids
+	// runtime 调（X-Internal-Token 鉴权），外部访问 401
+	"POST /api/account/_validate-password": handleValidatePassword,
 	// 前台接口示例（以 /api/ 开头）
 	"GET /api/account/hello": handleHello,
 	// 后台管理接口示例（以 /{admin_prefix}/api/ 开头，部署时替换为项目 UUID）
@@ -147,6 +150,12 @@ func handleHello(w http.ResponseWriter, r *http.Request) {
 // task/inner_plugin.md §6.2 临时超管账号生成接口
 func handleCreateTemporaryAdmin(w http.ResponseWriter, r *http.Request) {
 	Plugin.handleCreateTemporaryAdmin(w, r)
+}
+
+// handleValidatePassword 包级 handler，包装到 Plugin 实例方法
+// runtime adminLogin 内部调用：验证账号密码 + 返回身份信息
+func handleValidatePassword(w http.ResponseWriter, r *http.Request) {
+	Plugin.handleValidatePassword(w, r)
 }
 
 func handleAdminPing(w http.ResponseWriter, r *http.Request) {
