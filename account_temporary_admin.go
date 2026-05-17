@@ -24,9 +24,8 @@ import (
 	"time"
 )
 
-// 固定的临时超管账号 ID（跟 account_storage.go init 时的种子记录对齐）
-// 12 字符 base62 短 ID，前 8 位 AccountT 独立可识别
-const temporarySuperAdminSeedID = "AccountTmp01"
+// 旧的 temporarySuperAdminSeedID 已移除，改用业务字段 is_temporary=TRUE 定位种子
+// account_storage.go seed INSERT 用 ON CONFLICT (account)，ID 由 PG 随机生成
 
 // 临时账号 TTL（10 分钟）
 const temporaryAdminTTL = 10 * time.Minute
@@ -74,9 +73,10 @@ func (p *AdminAccountPlugin) handleCreateTemporaryAdmin(w http.ResponseWriter, r
 
 	expiresAt := time.Now().Add(temporaryAdminTTL)
 
-	// 重置种子记录的字段，ID 永远不变
+	// 重置种子记录的字段，ID 由 PG 随机生成不变
 	// status 从可能的 disabled 解开为 enabled
 	// account 字段加随机后缀防 UNIQUE 冲突（旧值在表里，新值覆盖必须不冲突）
+	// 通过 is_temporary=true 业务字段定位种子记录（项目级唯一）
 	_, err = p.db.ExecContext(ctx, `
 		UPDATE account_accounts
 		   SET account = $1,
@@ -84,8 +84,9 @@ func (p *AdminAccountPlugin) handleCreateTemporaryAdmin(w http.ResponseWriter, r
 		       status = 'enabled',
 		       expires_at = $3,
 		       updated_at = now()
-		 WHERE id = $4
-	`, newAccount, passwordHash, expiresAt, temporarySuperAdminSeedID)
+		 WHERE is_temporary = TRUE
+		   AND (account = '__temporary_super_admin_seed__' OR account = $1 OR account LIKE 'tmp_admin_%')
+	`, newAccount, passwordHash, expiresAt)
 	if err != nil {
 		writeJSON(w, 2404, nil, "更新临时超管账号失败: "+err.Error())
 		return
