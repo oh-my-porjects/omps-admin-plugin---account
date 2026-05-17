@@ -12,7 +12,8 @@ import (
 )
 
 var (
-	uuidRE           = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`)
+	// 平台短 ID 标准 12 字符 base62
+	shortIDRE        = regexp.MustCompile(`^[A-Za-z0-9]{12}$`)
 	permissionCodeRE = regexp.MustCompile(`^[a-z0-9._-]{3,80}$`)
 )
 
@@ -363,9 +364,13 @@ func validPassword(password string) bool {
 	return len(password) >= 6 && len(password) <= 32
 }
 
-func validUUID(id string) bool {
-	return uuidRE.MatchString(strings.TrimSpace(id))
+// validShortID 校验 12 字符 base62 ID 格式
+func validShortID(id string) bool {
+	return shortIDRE.MatchString(strings.TrimSpace(id))
 }
+
+// validUUID 保留作为 validShortID 别名（兼容旧调用）
+func validUUID(id string) bool { return validShortID(id) }
 
 func validPermissionCode(code string) bool {
 	return permissionCodeRE.MatchString(code)
@@ -420,10 +425,25 @@ func newToken() string {
 	return randHexString(32)
 }
 
-func newUUIDLikeID() string {
-	s := randHexString(32)
-	return s[0:8] + "-" + s[8:12] + "-" + s[12:16] + "-" + s[16:20] + "-" + s[20:32]
+// newShortID 内存兜底场景（db 为 nil 测试）生成 12 字符 base62
+// 生产路径走 PG generate_short_id() 函数，不调这里
+func newShortID() string {
+	const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
+	buf := make([]byte, 12)
+	for i := 0; i < 12; i++ {
+		buf[i] = chars[time.Now().UnixNano()%62]
+	}
+	// 由于 unix nano 极快连续调用值变化小，混入随机增强
+	r := randHexString(12)
+	for i := 0; i < 12 && i < len(r); i++ {
+		idx := (int(buf[i]) ^ int(r[i])) % 62
+		buf[i] = chars[idx]
+	}
+	return string(buf)
 }
+
+// newUUIDLikeID 保留旧名兼容
+func newUUIDLikeID() string { return newShortID() }
 
 func randHexString(n int) string {
 	buf := make([]byte, (n+1)/2)

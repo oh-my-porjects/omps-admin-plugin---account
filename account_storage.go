@@ -26,8 +26,9 @@ func (p *AdminAccountPlugin) initStorage(ctx context.Context) error {
 	}
 	for _, stmt := range []string{
 		`CREATE EXTENSION IF NOT EXISTS pgcrypto`,
+		// 平台短 ID 标准 12 字符 base62, generate_short_id() 由 runtime migration11 注入
 		`CREATE TABLE IF NOT EXISTS account_accounts (
-			id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+			id TEXT PRIMARY KEY DEFAULT generate_short_id(),
 			account TEXT NOT NULL UNIQUE,
 			password_hash TEXT NOT NULL,
 			status TEXT NOT NULL DEFAULT 'enabled',
@@ -37,13 +38,10 @@ func (p *AdminAccountPlugin) initStorage(ctx context.Context) error {
 			created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
 			updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 		)`,
-		// 兼容老表：把 is_temporary / expires_at 字段补上
-		`ALTER TABLE account_accounts ADD COLUMN IF NOT EXISTS is_temporary BOOLEAN NOT NULL DEFAULT FALSE`,
-		`ALTER TABLE account_accounts ADD COLUMN IF NOT EXISTS expires_at TIMESTAMPTZ`,
 		`CREATE TABLE IF NOT EXISTS account_role_bindings (
-			id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-			account_id UUID NOT NULL REFERENCES account_accounts(id) ON DELETE CASCADE,
-			role_id UUID NOT NULL,
+			id TEXT PRIMARY KEY DEFAULT generate_short_id(),
+			account_id TEXT NOT NULL REFERENCES account_accounts(id) ON DELETE CASCADE,
+			role_id TEXT NOT NULL,
 			created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
 			UNIQUE (account_id, role_id)
 		)`,
@@ -51,7 +49,7 @@ func (p *AdminAccountPlugin) initStorage(ctx context.Context) error {
 		// 项目级唯一一条 is_temporary=true 的记录，初始 disabled
 		// admin-server 调 _create-temporary-admin 接口时只重置 account/password_hash/status/expires_at，ID 永远不变
 		`INSERT INTO account_accounts (id, account, password_hash, status, is_super_admin, is_temporary)
-		 VALUES ('00000000-0000-0000-0000-0000000000fe', '__temporary_super_admin_seed__', '', 'disabled', TRUE, TRUE)
+		 VALUES ('00000000TmAd', '__temporary_super_admin_seed__', '', 'disabled', TRUE, TRUE)
 		 ON CONFLICT (id) DO NOTHING`,
 	} {
 		if _, err := p.db.ExecContext(ctx, stmt); err != nil {
@@ -109,7 +107,7 @@ func (p *AdminAccountPlugin) getAccountByAccount(ctx context.Context, account st
 func (p *AdminAccountPlugin) queryAccount(ctx context.Context, where string, arg any) (accountRecord, bool, error) {
 	var acc accountRecord
 	err := p.db.QueryRowContext(ctx, `
-		SELECT id::text, account, password_hash, status, is_super_admin, created_at, updated_at
+		SELECT id, account, password_hash, status, is_super_admin, created_at, updated_at
 		FROM account_accounts WHERE `+where, arg).
 		Scan(&acc.ID, &acc.Username, &acc.PasswordHash, &acc.Status, &acc.IsSuperAdmin, &acc.CreatedAt, &acc.UpdatedAt)
 	if sqlNoRows(err) {
@@ -127,7 +125,7 @@ func (p *AdminAccountPlugin) accountRoleIDs(ctx context.Context, accountID strin
 		defer p.mu.Unlock()
 		return append([]string(nil), p.roles[accountID]...), nil
 	}
-	rows, err := p.db.QueryContext(ctx, "SELECT role_id::text FROM account_role_bindings WHERE account_id=$1 ORDER BY role_id", accountID)
+	rows, err := p.db.QueryContext(ctx, "SELECT role_id FROM account_role_bindings WHERE account_id=$1 ORDER BY role_id", accountID)
 	if err != nil {
 		return nil, err
 	}
@@ -160,7 +158,7 @@ func (p *AdminAccountPlugin) createAccount(ctx context.Context, account, passwor
 		err = tx.QueryRowContext(ctx, `
 			INSERT INTO account_accounts (account, password_hash, status, is_super_admin)
 			VALUES ($1, $2, $3, FALSE)
-			RETURNING id::text, account, password_hash, status, is_super_admin, created_at, updated_at`,
+			RETURNING id, account, password_hash, status, is_super_admin, created_at, updated_at`,
 			account, passwordHash, status).
 			Scan(&acc.ID, &acc.Username, &acc.PasswordHash, &acc.Status, &acc.IsSuperAdmin, &acc.CreatedAt, &acc.UpdatedAt)
 		if err != nil {
@@ -199,7 +197,7 @@ func (p *AdminAccountPlugin) listAccounts(ctx context.Context, status, keyword s
 		}
 		args = append(args, pageSize, (page-1)*pageSize)
 		rows, err := p.db.QueryContext(ctx, `
-			SELECT id::text, account, password_hash, status, is_super_admin, created_at, updated_at
+			SELECT id, account, password_hash, status, is_super_admin, created_at, updated_at
 			FROM account_accounts WHERE `+where+` ORDER BY created_at DESC LIMIT $`+strconv.Itoa(len(args)-1)+` OFFSET $`+strconv.Itoa(len(args)), args...)
 		if err != nil {
 			return nil, 0, err
@@ -256,7 +254,7 @@ func (p *AdminAccountPlugin) updateAccount(ctx context.Context, accountID, statu
 		err = tx.QueryRowContext(ctx, `
 			UPDATE account_accounts SET status=$2, updated_at=now()
 			WHERE id=$1
-			RETURNING id::text, account, password_hash, status, is_super_admin, created_at, updated_at`, accountID, status).
+			RETURNING id, account, password_hash, status, is_super_admin, created_at, updated_at`, accountID, status).
 			Scan(&acc.ID, &acc.Username, &acc.PasswordHash, &acc.Status, &acc.IsSuperAdmin, &acc.CreatedAt, &acc.UpdatedAt)
 		if sqlNoRows(err) {
 			return accountRecord{}, nil, false, nil
@@ -325,7 +323,7 @@ func (p *AdminAccountPlugin) resetPassword(ctx context.Context, accountID, newPa
 		err := p.db.QueryRowContext(ctx, `
 			UPDATE account_accounts SET password_hash=$2, updated_at=now()
 			WHERE id=$1
-			RETURNING id::text, account, password_hash, status, is_super_admin, created_at, updated_at`,
+			RETURNING id, account, password_hash, status, is_super_admin, created_at, updated_at`,
 			accountID, passwordHash).
 			Scan(&acc.ID, &acc.Username, &acc.PasswordHash, &acc.Status, &acc.IsSuperAdmin, &acc.CreatedAt, &acc.UpdatedAt)
 		if sqlNoRows(err) {

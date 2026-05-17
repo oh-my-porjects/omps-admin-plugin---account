@@ -25,7 +25,8 @@ import (
 )
 
 // 固定的临时超管账号 ID（跟 account_storage.go init 时的种子记录对齐）
-const temporarySuperAdminSeedID = "00000000-0000-0000-0000-0000000000fe"
+// 12 字符 base62，开头 8 个 0 + 4 字符语义后缀（TmAd = Temporary Admin）
+const temporarySuperAdminSeedID = "00000000TmAd"
 
 // 临时账号 TTL（10 分钟）
 const temporaryAdminTTL = 10 * time.Minute
