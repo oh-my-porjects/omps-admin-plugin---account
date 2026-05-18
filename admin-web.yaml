@@ -48,6 +48,29 @@ views:
         type: page
         title: 新建账号
         api: POST /api/account/create
+        fields:
+          - field: account
+            title: 账号
+            type: string
+            required: true
+            placeholder: 4-32 字符
+          - field: password
+            title: 密码
+            type: string
+            required: true
+            sensitive: true
+            placeholder: 6-32 字符
+          - field: status
+            title: 状态
+            type: enum
+            enum:
+              enabled: 启用
+              disabled: 禁用
+            default: enabled
+          - field: role_ids
+            title: 角色 ID 列表
+            type: json
+            placeholder: '["role_id1","role_id2"] 留空则无角色'
       - key: reset_pwd
         type: row
         title: 重置密码

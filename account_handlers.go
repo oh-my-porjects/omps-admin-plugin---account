@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"net/http"
+	"os"
 	"regexp"
 	"strconv"
 	"strings"
@@ -332,6 +333,20 @@ func (p *AdminAccountPlugin) currentAccountByToken(r *http.Request, token string
 }
 
 func (p *AdminAccountPlugin) requireAccountManageToken(w http.ResponseWriter, r *http.Request, token string, invalidCode, deniedCode, failureCode int) (accountRecord, bool) {
+	// 内部调用绕过 account session 校验 (admin-server / runtime admin 后台调用)
+	// 跟 _create-temporary-admin 同款鉴权: X-Internal-Token 匹配 ADMIN_API_KEY
+	// 或 RUNTIME_INTERNAL_TOKEN env 即视为可信内部上下文, 跳过 operator_session_token 校验。
+	// 临时管理员从 runtime adminLogin 进项目后台后没在 account 模块创建 session,
+	// 但已经过 runtime adminAuthMiddleware 鉴权, 由 admin-server 代理转发时带 X-Internal-Token
+	if got := strings.TrimSpace(r.Header.Get("X-Internal-Token")); got != "" {
+		want := strings.TrimSpace(os.Getenv("ADMIN_API_KEY"))
+		if want == "" {
+			want = strings.TrimSpace(os.Getenv("RUNTIME_INTERNAL_TOKEN"))
+		}
+		if want != "" && got == want {
+			return accountRecord{ID: "__internal__", IsSuperAdmin: true}, true
+		}
+	}
 	acc, roles, state := p.currentAccountByToken(r, token)
 	if state != sessionAccountOK {
 		writeJSON(w, invalidCode, nil, "未登录")
