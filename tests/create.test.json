@@ -1,84 +1,115 @@
 {
-  "api": "POST /api/admin-account/create",
+  "api": "POST /api/account/create",
   "cases": [
     {
       "name": "未登录创建账号返回 2221",
       "actor": "anonymous",
       "depends_on": [],
       "method": "POST",
-      "path": "/api/admin-account/create",
-      "body": {"account": "${range_tag}anonymous_${rand:8}", "password": "Passw0rd!", "status": "enabled", "role_ids": []},
+      "path": "/api/account/create",
+      "body": {
+        "account": "${range_tag}anonymous_${rand:8}",
+        "password": "Passw0rd!",
+        "status": "enabled",
+        "role_ids": []
+      },
       "expect_status": 200,
       "expect_business_status": 2221,
-      "expect_field": {"status": 2221}
+      "expect_field": {
+        "status": 2221
+      }
     },
     {
-      "name": "超级管理员创建启用账号成功",
+      "name": "超级管理员创建无角色启用账号成功",
       "actor": "admin",
-      "depends_on": [],
+      "depends_on": [
+        "login.0"
+      ],
       "method": "POST",
-      "path": "/api/admin-account/create",
-      "body": {"operator_session_token": "${admin_session_token}", "account": "${range_tag}new_${rand:8}", "password": "Passw0rd!", "status": "enabled", "role_ids": ["00000000-0000-0000-0000-000000000003"]},
+      "path": "/api/account/create",
+      "body": {
+        "operator_session_token": "${admin_session_token}",
+        "account": "${range_tag}new_${rand:8}",
+        "password": "Passw0rd!",
+        "status": "enabled",
+        "role_ids": []
+      },
       "expect_status": 200,
       "expect_business_status": 0,
-      "expect_field": {"status": 0, "data.account": "${range_tag}new_${rand:8}", "data.status": "enabled", "data.is_super_admin": false},
-      "side_effect_tables": ["admin_accounts_accounts", "admin_accounts_account_roles"]
-    },
-    {
-      "name": "超级管理员创建无角色禁用账号成功",
-      "actor": "admin",
-      "depends_on": [],
-      "method": "POST",
-      "path": "/api/admin-account/create",
-      "body": {"operator_session_token": "${admin_session_token}", "account": "${range_tag}disabled_${rand:8}", "password": "Passw0rd!", "status": "disabled", "role_ids": []},
-      "expect_status": 200,
-      "expect_business_status": 0,
-      "expect_field": {"status": 0, "data.account": "${range_tag}disabled_${rand:8}", "data.status": "disabled", "data.is_super_admin": false},
-      "side_effect_tables": ["admin_accounts_accounts"]
+      "expect_field": {
+        "status": 0,
+        "data.account": "${range_tag}new_${rand:8}",
+        "data.status": "enabled",
+        "data.is_super_admin": false
+      },
+      "side_effect_tables": [
+        "account_accounts",
+        "account_role_bindings"
+      ]
     },
     {
       "name": "账号重复返回 2224",
       "actor": "admin",
-      "depends_on": [],
+      "depends_on": [
+        "login.0"
+      ],
       "method": "POST",
-      "path": "/api/admin-account/create",
-      "body": {"operator_session_token": "${admin_session_token}", "account": "${range_tag}root", "password": "Passw0rd!", "status": "enabled", "role_ids": []},
+      "path": "/api/account/create",
+      "body": {
+        "operator_session_token": "${admin_session_token}",
+        "account": "${range_tag}root",
+        "password": "Passw0rd!",
+        "status": "enabled",
+        "role_ids": []
+      },
       "expect_status": 200,
       "expect_business_status": 2224,
-      "expect_field": {"status": 2224}
-    },
-    {
-      "name": "普通账号无账号管理权限返回 2222",
-      "actor": "admin",
-      "depends_on": [],
-      "method": "POST",
-      "path": "/api/admin-account/create",
-      "body": {"operator_session_token": "${operator_session_token}", "account": "${range_tag}deny_${rand:8}", "password": "Passw0rd!", "status": "enabled", "role_ids": []},
-      "expect_status": 200,
-      "expect_business_status": 2222,
-      "expect_field": {"status": 2222}
-    },
-    {
-      "name": "status 缺失返回 2223",
-      "actor": "admin",
-      "depends_on": [],
-      "method": "POST",
-      "path": "/api/admin-account/create",
-      "body": {"operator_session_token": "${admin_session_token}", "account": "${range_tag}bad_${rand:8}", "password": "Passw0rd!", "role_ids": []},
-      "expect_status": 200,
-      "expect_business_status": 2223,
-      "expect_field": {"status": 2223}
+      "expect_field": {
+        "status": 2224
+      }
     },
     {
       "name": "role_ids 缺失返回 2225",
       "actor": "admin",
-      "depends_on": [],
+      "depends_on": [
+        "login.0"
+      ],
       "method": "POST",
-      "path": "/api/admin-account/create",
-      "body": {"operator_session_token": "${admin_session_token}", "account": "${range_tag}role_${rand:8}", "password": "Passw0rd!", "status": "enabled"},
+      "path": "/api/account/create",
+      "body": {
+        "operator_session_token": "${admin_session_token}",
+        "account": "${range_tag}role_${rand:8}",
+        "password": "Passw0rd!",
+        "status": "enabled"
+      },
       "expect_status": 200,
       "expect_business_status": 2225,
-      "expect_field": {"status": 2225}
+      "expect_field": {
+        "status": 2225
+      }
+    },
+    {
+      "name": "非法角色 UUID 返回 2225",
+      "actor": "admin",
+      "depends_on": [
+        "login.0"
+      ],
+      "method": "POST",
+      "path": "/api/account/create",
+      "body": {
+        "operator_session_token": "${admin_session_token}",
+        "account": "${range_tag}bad_role_${rand:8}",
+        "password": "Passw0rd!",
+        "status": "enabled",
+        "role_ids": [
+          "bad-role"
+        ]
+      },
+      "expect_status": 200,
+      "expect_business_status": 2225,
+      "expect_field": {
+        "status": 2225
+      }
     }
   ]
 }

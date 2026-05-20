@@ -1,0 +1,60 @@
+{
+  "api": "POST /_internal/scheduled-trigger/admin_account",
+  "cases": [
+    {
+      "name": "内部触发自测任务成功并返回 SSE 日志",
+      "kind": "sse",
+      "actor": "admin",
+      "depends_on": [],
+      "method": "POST",
+      "path": "/_internal/scheduled-trigger/admin_account",
+      "headers": {
+        "X-Internal-Token": "${internal_token}"
+      },
+      "body": {
+        "task_name": "admin_account_selftest_task"
+      },
+      "expect_status": 200,
+      "expect_contains": "admin_account selftest task executed",
+      "sse_steps": [
+        {
+          "expect_data": "任务 admin_account_selftest_task 开始执行",
+          "timeout_ms": 3000
+        },
+        {
+          "expect_data": "admin_account selftest task executed",
+          "timeout_ms": 3000
+        },
+        {
+          "expect_data": "任务完成",
+          "timeout_ms": 3000
+        }
+      ]
+    },
+    {
+      "name": "任务名缺失返回 400",
+      "actor": "admin",
+      "depends_on": [],
+      "method": "POST",
+      "path": "/_internal/scheduled-trigger/admin_account",
+      "headers": {
+        "X-Internal-Token": "${internal_token}"
+      },
+      "body": {},
+      "expect_status": 400,
+      "expect_contains": "task_name"
+    },
+    {
+      "name": "缺失内部 token 返回 401",
+      "actor": "anonymous",
+      "depends_on": [],
+      "method": "POST",
+      "path": "/_internal/scheduled-trigger/admin_account",
+      "body": {
+        "task_name": "admin_account_selftest_task"
+      },
+      "expect_status": 401,
+      "expect_contains": "unauthorized"
+    }
+  ]
+}

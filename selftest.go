@@ -15,6 +15,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"crypto/rand"
 	"embed"
 	"encoding/hex"
@@ -70,9 +71,9 @@ type SelftestCase struct {
 	Path             string            `json:"path,omitempty"`
 	Headers          map[string]string `json:"headers,omitempty"`
 	Body             json.RawMessage   `json:"body,omitempty"`
-	ExpectStatus     *int              `json:"expect_status,omitempty"`     // HTTP 状态码（可选）
-	ExpectField      map[string]any    `json:"expect_field,omitempty"`      // JSON 字段路径 → 期望值，如 "status": 0
-	ExpectContains   string            `json:"expect_contains,omitempty"`   // 响应体包含某子串
+	ExpectStatus     *int              `json:"expect_status,omitempty"`   // HTTP 状态码（可选）
+	ExpectField      map[string]any    `json:"expect_field,omitempty"`    // JSON 字段路径 → 期望值，如 "status": 0
+	ExpectContains   string            `json:"expect_contains,omitempty"` // 响应体包含某子串
 	SideEffectTables []string          `json:"side_effect_tables,omitempty"`
 	// WS / SSE / 文件上传专用字段（selftest 仅识别 kind 跳过，由 admin-web 测试页执行）
 	WSSteps  []map[string]any `json:"ws_steps,omitempty"`
@@ -164,12 +165,12 @@ func runSingleCase(api, file string, idx int, c SelftestCase) map[string]any {
 	kind := strings.ToLower(c.Kind)
 	if kind == "websocket" || kind == "sse" || kind == "file_upload" {
 		return map[string]any{
-			"file":   file,
-			"index":  idx,
-			"name":   c.Name,
-			"api":    api,
-			"kind":   kind,
-			"passed": true,
+			"file":           file,
+			"index":          idx,
+			"name":           c.Name,
+			"api":            api,
+			"kind":           kind,
+			"passed":         true,
 			"skipped_reason": "kind=" + kind + " 仅在 admin-web 测试页执行",
 		}
 	}
@@ -352,19 +353,21 @@ func valuesEqual(a, b any) bool {
 // 用例场景：注册接口要避免手机号/邮箱重复 → body 里写 "phone": "138${rand}"，
 // expect_field 里同步写 "data.phone": "138${rand}"，两次替换得到相同值，断言才能过。
 type templateVars struct {
-	ts    string
-	tsMs  string
-	uuid  string
-	cache map[string]string // 缓存 ${rand:N} 等动态生成的占位
+	ts       string
+	tsMs     string
+	uuid     string
+	rangeTag string
+	cache    map[string]string // 缓存 ${rand:N} 等动态生成的占位
 }
 
 func buildTemplateVars() *templateVars {
 	now := time.Now()
 	return &templateVars{
-		ts:    strconv.FormatInt(now.Unix(), 10),
-		tsMs:  strconv.FormatInt(now.UnixMilli(), 10),
-		uuid:  randHex(32),
-		cache: map[string]string{},
+		ts:       strconv.FormatInt(now.Unix(), 10),
+		tsMs:     strconv.FormatInt(now.UnixMilli(), 10),
+		uuid:     randHex(32),
+		rangeTag: "test_req_selftest_",
+		cache:    map[string]string{},
 	}
 }
 
@@ -393,6 +396,14 @@ func applyTemplateVars(s string, v *templateVars) string {
 
 func resolveTemplateName(name, arg string, v *templateVars) string {
 	switch name {
+	case "internal_token":
+		return os.Getenv("RUNTIME_INTERNAL_TOKEN")
+	case "range_tag":
+		return v.rangeTag
+	case "admin_session_token":
+		return selftestSessionToken("10000000-0000-0000-0000-000000000001")
+	case "operator_session_token":
+		return selftestSessionToken("10000000-0000-0000-0000-000000000002")
 	case "ts":
 		return v.ts
 	case "ts_ms":
@@ -428,6 +439,17 @@ func randHex(n int) string {
 		return fallback
 	}
 	return hex.EncodeToString(buf)[:n]
+}
+
+func selftestSessionToken(accountID string) string {
+	if Plugin == nil {
+		return ""
+	}
+	token, _, err := Plugin.createSession(context.Background(), accountID)
+	if err != nil {
+		return ""
+	}
+	return token
 }
 
 // resolveTemplateAny 对 expect_field 的 value 做模板替换；非字符串原样返回

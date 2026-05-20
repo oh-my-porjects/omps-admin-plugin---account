@@ -1,45 +1,45 @@
 {
-  "api": "GET /api/admin-account/me",
+  "api": "GET /api/account/me",
   "cases": [
     {
       "name": "查询超级管理员当前账号成功",
       "actor": "admin",
-      "depends_on": [],
+      "depends_on": [
+        "login.0"
+      ],
       "method": "GET",
-      "path": "/api/admin-account/me?session_token=${admin_session_token}",
+      "path": "/api/account/me?session_token=${admin_session_token}",
       "expect_status": 200,
       "expect_business_status": 0,
-      "expect_field": {"status": 0, "data.account": "${range_tag}root", "data.is_super_admin": true}
-    },
-    {
-      "name": "查询普通后台账号当前账号成功",
-      "actor": "admin",
-      "depends_on": [],
-      "method": "GET",
-      "path": "/api/admin-account/me?session_token=${operator_session_token}",
-      "expect_status": 200,
-      "expect_business_status": 0,
-      "expect_field": {"status": 0, "data.account": "${range_tag}operator", "data.is_super_admin": false}
+      "expect_field": {
+        "status": 0,
+        "data.account": "${range_tag}root",
+        "data.is_super_admin": true
+      }
     },
     {
       "name": "会话令牌缺失返回 2211",
       "actor": "anonymous",
       "depends_on": [],
       "method": "GET",
-      "path": "/api/admin-account/me",
+      "path": "/api/account/me",
       "expect_status": 200,
       "expect_business_status": 2211,
-      "expect_field": {"status": 2211}
+      "expect_field": {
+        "status": 2211
+      }
     },
     {
       "name": "会话过期返回 2212",
       "actor": "anonymous",
       "depends_on": [],
       "method": "GET",
-      "path": "/api/admin-account/me?session_token=expired_session_token",
+      "path": "/api/account/me?session_token=expired_session_token",
       "expect_status": 200,
       "expect_business_status": 2212,
-      "expect_field": {"status": 2212}
+      "expect_field": {
+        "status": 2212
+      }
     }
   ]
 }

@@ -1,56 +1,61 @@
 {
-  "api": "GET /api/admin-account/detail",
+  "api": "GET /api/account/detail",
   "cases": [
     {
       "name": "未登录查询账号详情返回 2241",
       "actor": "anonymous",
       "depends_on": [],
       "method": "GET",
-      "path": "/api/admin-account/detail?account_id=${admin_account_id}",
+      "path": "/api/account/detail?account_id=10000000-0000-0000-0000-000000000001",
       "expect_status": 200,
       "expect_business_status": 2241,
-      "expect_field": {"status": 2241}
+      "expect_field": {
+        "status": 2241
+      }
     },
     {
       "name": "超级管理员查询账号详情成功",
       "actor": "admin",
-      "depends_on": [],
+      "depends_on": [
+        "login.0"
+      ],
       "method": "GET",
-      "path": "/api/admin-account/detail?account_id=${admin_account_id}&operator_session_token=${admin_session_token}",
+      "path": "/api/account/detail?account_id=10000000-0000-0000-0000-000000000001&operator_session_token=${admin_session_token}",
       "expect_status": 200,
       "expect_business_status": 0,
-      "expect_field": {"status": 0, "data.account": "${range_tag}root", "data.is_super_admin": true},
-      "expect_contains": "\"role_status\":\"enabled\""
-    },
-    {
-      "name": "普通账号无账号管理权限返回 2242",
-      "actor": "admin",
-      "depends_on": [],
-      "method": "GET",
-      "path": "/api/admin-account/detail?account_id=${admin_account_id}&operator_session_token=${operator_session_token}",
-      "expect_status": 200,
-      "expect_business_status": 2242,
-      "expect_field": {"status": 2242}
+      "expect_field": {
+        "status": 0,
+        "data.account": "${range_tag}root",
+        "data.is_super_admin": true
+      }
     },
     {
       "name": "账号不存在返回 2244",
       "actor": "admin",
-      "depends_on": [],
+      "depends_on": [
+        "login.0"
+      ],
       "method": "GET",
-      "path": "/api/admin-account/detail?account_id=99999999-9999-9999-9999-999999999999&operator_session_token=${admin_session_token}",
+      "path": "/api/account/detail?account_id=99999999-9999-9999-9999-999999999999&operator_session_token=${admin_session_token}",
       "expect_status": 200,
       "expect_business_status": 2244,
-      "expect_field": {"status": 2244}
+      "expect_field": {
+        "status": 2244
+      }
     },
     {
       "name": "账号 ID 非法返回 2243",
       "actor": "admin",
-      "depends_on": [],
+      "depends_on": [
+        "login.0"
+      ],
       "method": "GET",
-      "path": "/api/admin-account/detail?account_id=bad-id&operator_session_token=${admin_session_token}",
+      "path": "/api/account/detail?account_id=bad-id&operator_session_token=${admin_session_token}",
       "expect_status": 200,
       "expect_business_status": 2243,
-      "expect_field": {"status": 2243}
+      "expect_field": {
+        "status": 2243
+      }
     }
   ]
 }

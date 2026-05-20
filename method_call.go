@@ -28,6 +28,12 @@ var Methods = map[string]MethodFunc{}
 
 func init() {
 	Routes["POST /_internal/method-call/admin_account"] = handleMethodCallInternal
+	Methods["AdminAccountSelftestEcho"] = func(args map[string]any) (any, error) {
+		return map[string]any{
+			"module": "admin_account",
+			"echo":   args,
+		}, nil
+	}
 }
 
 func handleMethodCallInternal(w http.ResponseWriter, r *http.Request) {

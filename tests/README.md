@@ -56,6 +56,10 @@
 | `${rand}` | 6 位 hex 随机串 |
 | `${rand:N}` | N 位 hex 随机串（N=2~32） |
 | `${uuid}` | 32 位 hex（不带横线） |
+| `${range_tag}` | 本次 selftest 数据范围前缀 |
+| `${internal_token}` | `RUNTIME_INTERNAL_TOKEN` 的当前值 |
+| `${admin_session_token}` | selftest 为种子超级管理员创建的会话令牌 |
+| `${operator_session_token}` | selftest 为种子普通账号创建的会话令牌 |
 
 - **同一 case 内同名占位拿到相同值**：`body.phone="138${rand:8}"` 和 `expect_field."data.phone"="138${rand:8}"` 替换后是同一个手机号，断言才能过
 - 跨 case 之间各自重新生成

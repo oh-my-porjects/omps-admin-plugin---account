@@ -1,3 +1,13 @@
 {
-  "cases": []
+  "cases": [
+    {
+      "id": "M02",
+      "category": "scheduled_task",
+      "title": "观察临时超级管理员过期 worker",
+      "setup": "存在固定 ID 为 00000000-0000-0000-0000-0000000000fe 的临时超级管理员记录，且其 expires_at 可被调整。",
+      "action": "将 expires_at 调整为过去时间或等待 10 分钟以上，然后等待下一次 1 分钟 ticker 执行。",
+      "expected": "临时超级管理员记录被置为 status=disabled，记录未删除，后续再次生成会复用同一个固定 ID。",
+      "cleanup": "确认临时账号处于 disabled 状态。"
+    }
+  ]
 }

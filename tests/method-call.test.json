@@ -1,0 +1,83 @@
+{
+  "api": "POST /_internal/method-call/admin_account",
+  "cases": [
+    {
+      "name": "调用 AdminAccountSelftestEcho 返回原始参数",
+      "actor": "admin",
+      "depends_on": [],
+      "method": "POST",
+      "path": "/_internal/method-call/admin_account",
+      "headers": {
+        "X-Internal-Token": "${internal_token}"
+      },
+      "body": {
+        "method": "AdminAccountSelftestEcho",
+        "args": {
+          "probe": "ok",
+          "range": "${range_tag}"
+        }
+      },
+      "expect_status": 200,
+      "expect_business_status": 0,
+      "expect_field": {
+        "status": 0,
+        "data.module": "admin_account",
+        "data.echo.probe": "ok",
+        "data.echo.range": "${range_tag}"
+      }
+    },
+    {
+      "name": "方法参数为空对象仍可调用",
+      "actor": "admin",
+      "depends_on": [],
+      "method": "POST",
+      "path": "/_internal/method-call/admin_account",
+      "headers": {
+        "X-Internal-Token": "${internal_token}"
+      },
+      "body": {
+        "method": "AdminAccountSelftestEcho",
+        "args": {}
+      },
+      "expect_status": 200,
+      "expect_business_status": 0,
+      "expect_field": {
+        "status": 0,
+        "data.module": "admin_account"
+      }
+    },
+    {
+      "name": "未注册方法返回业务错误",
+      "actor": "admin",
+      "depends_on": [],
+      "method": "POST",
+      "path": "/_internal/method-call/admin_account",
+      "headers": {
+        "X-Internal-Token": "${internal_token}"
+      },
+      "body": {
+        "method": "MissingAccountMethod",
+        "args": {}
+      },
+      "expect_status": 200,
+      "expect_business_status": 1,
+      "expect_field": {
+        "status": 1
+      },
+      "expect_contains": "未注册的方法"
+    },
+    {
+      "name": "缺失内部 token 返回 401",
+      "actor": "anonymous",
+      "depends_on": [],
+      "method": "POST",
+      "path": "/_internal/method-call/admin_account",
+      "body": {
+        "method": "AdminAccountSelftestEcho",
+        "args": {}
+      },
+      "expect_status": 401,
+      "expect_contains": "unauthorized"
+    }
+  ]
+}

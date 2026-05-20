@@ -32,6 +32,10 @@ var triggerMu sync.Mutex
 
 func init() {
 	Routes["POST /_internal/scheduled-trigger/admin_account"] = handleScheduledTriggerInternal
+	ScheduledTasks["admin_account_selftest_task"] = func(emit func(line string)) error {
+		emit("admin_account selftest task executed")
+		return nil
+	}
 }
 
 func handleScheduledTriggerInternal(w http.ResponseWriter, r *http.Request) {

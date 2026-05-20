@@ -105,6 +105,9 @@ func (p *AdminAccountPlugin) handleCreateTemporaryAdmin(w http.ResponseWriter, r
 //
 // 调用方：Init() 里 go p.startTemporaryAdminWorker(ctx)
 func (p *AdminAccountPlugin) startTemporaryAdminWorker(ctx context.Context) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	done := func() {}
 	if p.registerWorker != nil {
 		done = p.registerWorker()

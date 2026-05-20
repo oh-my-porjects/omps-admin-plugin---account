@@ -1,0 +1,26 @@
+{
+  "api": "POST /{admin_prefix}/api/account/admin/ping",
+  "cases": [
+    {
+      "name": "admin ping 返回 pong",
+      "actor": "admin",
+      "depends_on": [],
+      "method": "POST",
+      "path": "/{admin_prefix}/api/account/admin/ping",
+      "expect_status": 200,
+      "expect_business_status": 0,
+      "expect_field": {
+        "status": 0,
+        "msg": "pong"
+      }
+    },
+    {
+      "name": "admin ping 拒绝匿名请求",
+      "actor": "anonymous",
+      "depends_on": [],
+      "method": "POST",
+      "path": "/{admin_prefix}/api/account/admin/ping",
+      "expect_status": 401
+    }
+  ]
+}
