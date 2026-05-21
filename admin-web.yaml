@@ -10,10 +10,10 @@ menus:
     roles: [admin, developer, operator]
     views: [account_list]
   - key: roles
-    title: 账号角色绑定
+    title: 账号详情
     icon: team
     roles: [admin, developer]
-    views: [account_role_binding]
+    views: [account_detail]
 
 views:
   - key: account_list
@@ -51,22 +51,24 @@ views:
       - key: reset_pwd
         type: row
         title: 重置密码
-        api: POST /api/account/{id}/reset-password
+        api: PUT /api/account/reset-password
       - key: toggle_ban
         type: row
-        title: 启用/禁用
-        api: POST /api/account/{id}/toggle-ban
+        title: 修改账号
+        api: PUT /api/account/update
         danger: true
 
-  - key: account_role_binding
+  - key: account_detail
     type: detail
-    title: 账号角色绑定
-    api: GET /api/account/role-bindings
+    title: 账号详情
+    api: GET /api/account/detail
     fields:
       - field: account_id
         title: 账号 ID
-      - field: roles
-        title: 已绑定角色
+      - field: account
+        title: 账号名
+      - field: role_ids
+        title: 角色
         render: json
 
 roles:
