@@ -13,6 +13,7 @@ import (
 
 var (
 	uuidRE           = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`)
+	shortIDRE        = regexp.MustCompile(`^[A-Za-z0-9]{12}$`)
 	permissionCodeRE = regexp.MustCompile(`^[a-z0-9._-]{3,80}$`)
 )
 
@@ -79,6 +80,41 @@ func (p *AdminAccountPlugin) handleMe(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, 0, resp, "ok")
+}
+
+func (p *AdminAccountPlugin) handleValidatePassword(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Account  string `json:"account"`
+		Password string `json:"password"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSON(w, 2281, nil, "请求体解析失败")
+		return
+	}
+	req.Account = strings.TrimSpace(req.Account)
+	if !validAccount(req.Account) || !validPassword(req.Password) {
+		writeJSON(w, 2281, nil, "账号和密码参数非法")
+		return
+	}
+	acc, roles, ok, err := p.getAccountByAccount(r.Context(), req.Account)
+	if err != nil {
+		writeJSON(w, 2284, nil, "账号校验失败")
+		return
+	}
+	if !ok || !verifyPassword(acc.PasswordHash, req.Password) {
+		writeJSON(w, 2282, nil, "账号或密码错误")
+		return
+	}
+	if acc.Status != "enabled" {
+		writeJSON(w, 2283, nil, "账号已停用")
+		return
+	}
+	writeJSON(w, 0, map[string]any{
+		"account_id":     acc.ID,
+		"account":        acc.Username,
+		"is_super_admin": acc.IsSuperAdmin,
+		"role_ids":       roles,
+	}, "ok")
 }
 
 func (p *AdminAccountPlugin) handleAccountCreate(w http.ResponseWriter, r *http.Request) {
@@ -149,7 +185,7 @@ func (p *AdminAccountPlugin) handleAccountDetail(w http.ResponseWriter, r *http.
 		return
 	}
 	accountID := strings.TrimSpace(r.URL.Query().Get("account_id"))
-	if !validUUID(accountID) {
+	if !validEntityID(accountID) {
 		writeJSON(w, 2243, nil, "account_id 参数非法")
 		return
 	}
@@ -190,7 +226,7 @@ func (p *AdminAccountPlugin) handleAccountUpdate(w http.ResponseWriter, r *http.
 	if !ok {
 		return
 	}
-	if !validUUID(req.AccountID) {
+	if !validEntityID(req.AccountID) {
 		writeJSON(w, 2253, nil, "account_id 参数非法")
 		return
 	}
@@ -237,7 +273,7 @@ func (p *AdminAccountPlugin) handleResetPassword(w http.ResponseWriter, r *http.
 	if !ok {
 		return
 	}
-	if !validUUID(req.AccountID) {
+	if !validEntityID(req.AccountID) {
 		writeJSON(w, 2263, nil, "account_id 参数非法")
 		return
 	}
@@ -399,6 +435,11 @@ func validUUID(id string) bool {
 	return uuidRE.MatchString(strings.TrimSpace(id))
 }
 
+func validEntityID(id string) bool {
+	id = strings.TrimSpace(id)
+	return uuidRE.MatchString(id) || shortIDRE.MatchString(id)
+}
+
 func validPermissionCode(code string) bool {
 	return permissionCodeRE.MatchString(code)
 }
@@ -455,6 +496,26 @@ func newToken() string {
 func newUUIDLikeID() string {
 	s := randHexString(32)
 	return s[0:8] + "-" + s[8:12] + "-" + s[12:16] + "-" + s[16:20] + "-" + s[20:32]
+}
+
+func newShortID() string {
+	const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
+	var b [12]byte
+	if _, err := rand.Read(b[:]); err != nil {
+		fallback := time.Now().UnixNano()
+		for i := range b {
+			b[i] = chars[fallback%62]
+			fallback /= 62
+			if fallback == 0 {
+				fallback = time.Now().UnixNano() + int64(i)
+			}
+		}
+		return string(b[:])
+	}
+	for i := range b {
+		b[i] = chars[int(b[i])%62]
+	}
+	return string(b[:])
 }
 
 func randHexString(n int) string {

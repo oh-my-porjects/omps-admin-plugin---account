@@ -78,12 +78,12 @@ func (p *AdminAccountPlugin) handleCreateTemporaryAdmin(w http.ResponseWriter, r
 	// account 字段加随机后缀防 UNIQUE 冲突（旧值在表里，新值覆盖必须不冲突）
 	_, err = p.db.ExecContext(ctx, `
 		UPDATE account_accounts
-		   SET account = $1,
-		       password_hash = $2,
-		       status = 'enabled',
-		       expires_at = $3,
-		       updated_at = now()
-		 WHERE id = $4
+	       SET account = $1,
+	           password_hash = $2,
+	           status = 'enabled',
+	           expires_at = $3,
+	           updated_at = now()
+	 WHERE id::text = $4
 	`, newAccount, passwordHash, expiresAt, temporarySuperAdminSeedID)
 	if err != nil {
 		writeJSON(w, 2404, nil, "更新临时超管账号失败: "+err.Error())

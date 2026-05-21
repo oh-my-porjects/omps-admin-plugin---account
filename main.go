@@ -119,14 +119,15 @@ var Plugin = &AdminAccountPlugin{}
 // 原因：Runtime 用全局 ServeMux 按路径精确分发请求。如果插件写
 // ServeHTTP 或内部 mux，多个插件之间会互相拦截请求导致 404。
 var Routes = map[string]http.HandlerFunc{
-	"POST /api/account/login":            handleLogin,
-	"GET /api/account/me":                handleMe,
-	"POST /api/account/create":           handleAccountCreate,
-	"GET /api/account/list":              handleAccountList,
-	"GET /api/account/detail":            handleAccountDetail,
-	"PUT /api/account/update":            handleAccountUpdate,
-	"PUT /api/account/reset-password":    handleResetPassword,
-	"POST /api/account/check-permission": handleCheckPermission,
+	"POST /api/account/login":              handleLogin,
+	"GET /api/account/me":                  handleMe,
+	"POST /api/account/_validate-password": handleValidatePassword,
+	"POST /api/account/create":             handleAccountCreate,
+	"GET /api/account/list":                handleAccountList,
+	"GET /api/account/detail":              handleAccountDetail,
+	"PUT /api/account/update":              handleAccountUpdate,
+	"PUT /api/account/reset-password":      handleResetPassword,
+	"POST /api/account/check-permission":   handleCheckPermission,
 	// 临时超管账号机制（task/inner_plugin.md §4.4 + §6）
 	// admin-server 调（X-Internal-Token 鉴权），外部访问 401
 	"POST /api/account/_create-temporary-admin": handleCreateTemporaryAdmin,
@@ -159,6 +160,10 @@ func handleLogin(w http.ResponseWriter, r *http.Request) {
 
 func handleMe(w http.ResponseWriter, r *http.Request) {
 	Plugin.handleMe(w, r)
+}
+
+func handleValidatePassword(w http.ResponseWriter, r *http.Request) {
+	Plugin.handleValidatePassword(w, r)
 }
 
 func handleAccountCreate(w http.ResponseWriter, r *http.Request) {

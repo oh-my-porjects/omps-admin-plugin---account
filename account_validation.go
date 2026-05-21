@@ -45,7 +45,7 @@ func (p *AdminAccountPlugin) cleanAndValidateRoles(w http.ResponseWriter, r *htt
 		if seen[roleID] {
 			continue
 		}
-		if !uuidRE.MatchString(roleID) {
+		if !validEntityID(roleID) {
 			writeJSON(w, formatCode, nil, "角色参数非法")
 			return nil, false
 		}
