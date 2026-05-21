@@ -26,8 +26,21 @@ func (p *AdminAccountPlugin) initStorage(ctx context.Context) error {
 	}
 	for _, stmt := range []string{
 		`CREATE EXTENSION IF NOT EXISTS pgcrypto`,
+		`CREATE OR REPLACE FUNCTION generate_short_id() RETURNS TEXT AS $$
+		DECLARE
+			chars TEXT := 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+			bytes BYTEA := gen_random_bytes(12);
+			result TEXT := '';
+			i INT;
+		BEGIN
+			FOR i IN 0..11 LOOP
+				result := result || substr(chars, 1 + (get_byte(bytes, i) % 62), 1);
+			END LOOP;
+			RETURN result;
+		END;
+		$$ LANGUAGE plpgsql VOLATILE`,
 		`CREATE TABLE IF NOT EXISTS account_accounts (
-			id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+			id TEXT PRIMARY KEY DEFAULT generate_short_id(),
 			account TEXT NOT NULL UNIQUE,
 			password_hash TEXT NOT NULL,
 			status TEXT NOT NULL DEFAULT 'enabled',
@@ -37,16 +50,39 @@ func (p *AdminAccountPlugin) initStorage(ctx context.Context) error {
 			created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
 			updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 		)`,
+		`ALTER TABLE IF EXISTS account_role_bindings DROP CONSTRAINT IF EXISTS account_role_bindings_account_id_fkey`,
+		`ALTER TABLE account_accounts ALTER COLUMN id DROP DEFAULT`,
+		`ALTER TABLE account_accounts ALTER COLUMN id TYPE TEXT USING id::text`,
+		`ALTER TABLE account_accounts ALTER COLUMN id SET DEFAULT generate_short_id()`,
 		// 兼容老表：把 is_temporary / expires_at 字段补上
 		`ALTER TABLE account_accounts ADD COLUMN IF NOT EXISTS is_temporary BOOLEAN NOT NULL DEFAULT FALSE`,
 		`ALTER TABLE account_accounts ADD COLUMN IF NOT EXISTS expires_at TIMESTAMPTZ`,
 		`CREATE TABLE IF NOT EXISTS account_role_bindings (
-			id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-			account_id UUID NOT NULL REFERENCES account_accounts(id) ON DELETE CASCADE,
-			role_id UUID NOT NULL,
+			id TEXT PRIMARY KEY DEFAULT generate_short_id(),
+			account_id TEXT NOT NULL REFERENCES account_accounts(id) ON DELETE CASCADE,
+			role_id TEXT NOT NULL,
 			created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
 			UNIQUE (account_id, role_id)
 		)`,
+		`ALTER TABLE account_role_bindings DROP CONSTRAINT IF EXISTS account_role_bindings_account_id_fkey`,
+		`ALTER TABLE account_role_bindings ALTER COLUMN id DROP DEFAULT`,
+		`ALTER TABLE account_role_bindings ALTER COLUMN id TYPE TEXT USING id::text`,
+		`ALTER TABLE account_role_bindings ALTER COLUMN id SET DEFAULT generate_short_id()`,
+		`ALTER TABLE account_role_bindings ALTER COLUMN account_id TYPE TEXT USING account_id::text`,
+		`ALTER TABLE account_role_bindings ALTER COLUMN role_id TYPE TEXT USING role_id::text`,
+		`DO $$
+		BEGIN
+			IF NOT EXISTS (
+				SELECT 1 FROM pg_constraint
+				WHERE conname = 'account_role_bindings_account_id_fkey'
+				  AND conrelid = 'account_role_bindings'::regclass
+			) THEN
+				ALTER TABLE account_role_bindings
+				ADD CONSTRAINT account_role_bindings_account_id_fkey
+				FOREIGN KEY (account_id) REFERENCES account_accounts(id) ON DELETE CASCADE NOT VALID;
+			END IF;
+		END;
+		$$`,
 		// 临时超管账号种子记录（task/inner_plugin.md §4.4 § §6.1）
 		// 项目级唯一一条 is_temporary=true 的记录，初始 disabled
 		// admin-server 调 _create-temporary-admin 接口时只重置 account/password_hash/status/expires_at，ID 永远不变
@@ -73,8 +109,9 @@ func (p *AdminAccountPlugin) ensureMemoryStore() {
 }
 
 func (p *AdminAccountPlugin) getAccountByID(ctx context.Context, accountID string) (accountRecord, []string, bool, error) {
+	accountID = strings.TrimSpace(accountID)
 	if p.db != nil {
-		acc, ok, err := p.queryAccount(ctx, "id=$1", accountID)
+		acc, ok, err := p.queryAccount(ctx, "id::text=$1", accountID)
 		if err != nil || !ok {
 			return acc, nil, ok, err
 		}
@@ -127,7 +164,7 @@ func (p *AdminAccountPlugin) accountRoleIDs(ctx context.Context, accountID strin
 		defer p.mu.Unlock()
 		return append([]string(nil), p.roles[accountID]...), nil
 	}
-	rows, err := p.db.QueryContext(ctx, "SELECT role_id::text FROM account_role_bindings WHERE account_id=$1 ORDER BY role_id", accountID)
+	rows, err := p.db.QueryContext(ctx, "SELECT role_id::text FROM account_role_bindings WHERE account_id::text=$1 ORDER BY role_id", accountID)
 	if err != nil {
 		return nil, err
 	}
@@ -176,7 +213,7 @@ func (p *AdminAccountPlugin) createAccount(ctx context.Context, account, passwor
 	}
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	acc := accountRecord{ID: newUUIDLikeID(), Username: account, PasswordHash: passwordHash, Status: status, CreatedAt: now, UpdatedAt: now}
+	acc := accountRecord{ID: newShortID(), Username: account, PasswordHash: passwordHash, Status: status, CreatedAt: now, UpdatedAt: now}
 	p.accounts[acc.ID] = acc
 	p.roles[acc.ID] = append([]string(nil), roleIDs...)
 	return acc, roleIDs, nil
@@ -255,7 +292,7 @@ func (p *AdminAccountPlugin) updateAccount(ctx context.Context, accountID, statu
 		var acc accountRecord
 		err = tx.QueryRowContext(ctx, `
 			UPDATE account_accounts SET status=$2, updated_at=now()
-			WHERE id=$1
+			WHERE id::text=$1
 			RETURNING id::text, account, password_hash, status, is_super_admin, created_at, updated_at`, accountID, status).
 			Scan(&acc.ID, &acc.Username, &acc.PasswordHash, &acc.Status, &acc.IsSuperAdmin, &acc.CreatedAt, &acc.UpdatedAt)
 		if sqlNoRows(err) {
@@ -304,7 +341,7 @@ func (p *AdminAccountPlugin) replaceAccountRoles(ctx context.Context, accountID 
 }
 
 func (p *AdminAccountPlugin) replaceAccountRolesTx(ctx context.Context, tx *sql.Tx, accountID string, roleIDs []string) error {
-	if _, err := tx.ExecContext(ctx, "DELETE FROM account_role_bindings WHERE account_id=$1", accountID); err != nil {
+	if _, err := tx.ExecContext(ctx, "DELETE FROM account_role_bindings WHERE account_id::text=$1", accountID); err != nil {
 		return err
 	}
 	for _, roleID := range roleIDs {
@@ -324,7 +361,7 @@ func (p *AdminAccountPlugin) resetPassword(ctx context.Context, accountID, newPa
 		var acc accountRecord
 		err := p.db.QueryRowContext(ctx, `
 			UPDATE account_accounts SET password_hash=$2, updated_at=now()
-			WHERE id=$1
+			WHERE id::text=$1
 			RETURNING id::text, account, password_hash, status, is_super_admin, created_at, updated_at`,
 			accountID, passwordHash).
 			Scan(&acc.ID, &acc.Username, &acc.PasswordHash, &acc.Status, &acc.IsSuperAdmin, &acc.CreatedAt, &acc.UpdatedAt)
