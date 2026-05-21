@@ -404,6 +404,8 @@ func resolveTemplateName(name, arg string, v *templateVars) string {
 		return selftestSessionToken("10000000-0000-0000-0000-000000000001")
 	case "operator_session_token":
 		return selftestSessionToken("10000000-0000-0000-0000-000000000002")
+	case "role_state_session_token":
+		return selftestSessionToken("10000000-0000-0000-0000-000000000004")
 	case "ts":
 		return v.ts
 	case "ts_ms":

@@ -41,6 +41,13 @@ func (p *AdminAccountPlugin) handleLogin(w http.ResponseWriter, r *http.Request)
 		writeJSON(w, 2203, nil, "账号已停用")
 		return
 	}
+	if available, err := p.rolesAvailable(r, roles); err != nil {
+		writeJSON(w, 2204, nil, "登录失败")
+		return
+	} else if !available {
+		writeJSON(w, 2203, nil, "账号绑定角色已失效")
+		return
+	}
 	token, expiresAt, err := p.createSession(r.Context(), acc.ID)
 	if err != nil {
 		writeJSON(w, 2204, nil, "登录失败")
@@ -306,7 +313,7 @@ func (p *AdminAccountPlugin) handleCheckPermission(w http.ResponseWriter, r *htt
 		}, "ok")
 		return
 	}
-	matched, err := p.matchedRoleIDsForPermission(r, roles, req.PermissionCode)
+	matched, roleStates, err := p.evaluateRolePermission(r, roles, req.PermissionCode)
 	if err != nil {
 		writeJSON(w, 2275, nil, "权限校验失败")
 		return
@@ -315,6 +322,7 @@ func (p *AdminAccountPlugin) handleCheckPermission(w http.ResponseWriter, r *htt
 		"allowed":          len(matched) > 0,
 		"is_super_admin":   false,
 		"matched_role_ids": matched,
+		"roles":            roleStates,
 	}, "ok")
 }
 

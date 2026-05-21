@@ -25,6 +25,7 @@ type adminRolePermission struct {
 type adminRoleDetail struct {
 	RoleID      string                `json:"role_id"`
 	Status      string                `json:"status"`
+	DeletedAt   string                `json:"deleted_at"`
 	Permissions []adminRolePermission `json:"permissions"`
 }
 
@@ -33,31 +34,62 @@ type adminRoleCheckPermission struct {
 	RoleStatus string `json:"role_status"`
 }
 
-func (p *AdminAccountPlugin) rolesAvailable(r *http.Request, roleIDs []string) bool {
+func (p *AdminAccountPlugin) rolesAvailable(r *http.Request, roleIDs []string) (bool, error) {
 	if len(roleIDs) == 0 {
-		return true
+		return true, nil
 	}
 	for _, roleID := range roleIDs {
 		detail, ok, err := p.adminRoleDetail(r.Context(), r, roleID)
-		if err != nil || !ok || detail.Status != "enabled" {
-			return false
+		if err != nil {
+			return false, err
+		}
+		if !ok || normalizeRoleStatus(detail) != "enabled" {
+			return false, nil
 		}
 	}
-	return true
+	return true, nil
 }
 
 func (p *AdminAccountPlugin) matchedRoleIDsForPermission(r *http.Request, roleIDs []string, permissionCode string) ([]string, error) {
+	matched, _, err := p.evaluateRolePermission(r, roleIDs, permissionCode)
+	return matched, err
+}
+
+func (p *AdminAccountPlugin) evaluateRolePermission(r *http.Request, roleIDs []string, permissionCode string) ([]string, []accountRoleResponse, error) {
 	matched := []string{}
+	roles := make([]accountRoleResponse, 0, len(roleIDs))
+	hasInvalidRole := false
 	for _, roleID := range roleIDs {
-		allowed, err := p.adminRoleCheckPermission(r.Context(), r, roleID, permissionCode)
+		detail, ok, err := p.adminRoleDetail(r.Context(), r, roleID)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
+		}
+		status := "missing"
+		if ok {
+			status = normalizeRoleStatus(detail)
+		}
+		roles = append(roles, accountRoleResponse{RoleID: roleID, RoleStatus: status})
+		if status != "enabled" {
+			hasInvalidRole = true
+			continue
+		}
+		allowed, roleStatus, err := p.adminRoleCheckPermission(r.Context(), r, roleID, permissionCode)
+		if err != nil {
+			return nil, nil, err
+		}
+		if roleStatus != "" && roleStatus != "enabled" {
+			roles[len(roles)-1].RoleStatus = roleStatus
+			hasInvalidRole = true
+			continue
 		}
 		if allowed {
 			matched = append(matched, roleID)
 		}
 	}
-	return matched, nil
+	if hasInvalidRole {
+		return []string{}, roles, nil
+	}
+	return matched, roles, nil
 }
 
 func (p *AdminAccountPlugin) roleDetailsAndPermissions(r *http.Request, roleIDs []string) ([]accountRoleResponse, []string, error) {
@@ -70,7 +102,7 @@ func (p *AdminAccountPlugin) roleDetailsAndPermissions(r *http.Request, roleIDs 
 		}
 		status := "missing"
 		if ok {
-			status = detail.Status
+			status = normalizeRoleStatus(detail)
 		}
 		roles = append(roles, accountRoleResponse{RoleID: roleID, RoleStatus: status})
 		if status != "enabled" {
@@ -89,12 +121,12 @@ func (p *AdminAccountPlugin) roleDetailsAndPermissions(r *http.Request, roleIDs 
 }
 
 func (p *AdminAccountPlugin) adminRoleDetail(ctx context.Context, r *http.Request, roleID string) (adminRoleDetail, bool, error) {
-	endpoint := p.runtimeURL(r, "/api/admin-role/detail") + "?role_id=" + url.QueryEscape(roleID)
+	endpoint := p.runtimeURL(r, "/api/role/detail") + "?role_id=" + url.QueryEscape(roleID)
 	var resp adminRoleAPIResponse
 	if err := p.doAdminRoleRequest(ctx, http.MethodGet, endpoint, nil, &resp); err != nil {
 		return adminRoleDetail{}, false, err
 	}
-	if resp.Status == 2122 {
+	if resp.Status == 2122 || resp.Status == 2312 || resp.Status == 2322 || resp.Status == 2332 || resp.Status == 2342 {
 		return adminRoleDetail{}, false, nil
 	}
 	if resp.Status != 0 {
@@ -107,23 +139,44 @@ func (p *AdminAccountPlugin) adminRoleDetail(ctx context.Context, r *http.Reques
 	return detail, true, nil
 }
 
-func (p *AdminAccountPlugin) adminRoleCheckPermission(ctx context.Context, r *http.Request, roleID, permissionCode string) (bool, error) {
+func (p *AdminAccountPlugin) adminRoleCheckPermission(ctx context.Context, r *http.Request, roleID, permissionCode string) (bool, string, error) {
 	body := map[string]string{"role_id": roleID, "permission_code": permissionCode}
 	var resp adminRoleAPIResponse
-	if err := p.doAdminRoleRequest(ctx, http.MethodPost, p.runtimeURL(r, "/api/admin-role/check-permission"), body, &resp); err != nil {
-		return false, err
+	if err := p.doAdminRoleRequest(ctx, http.MethodPost, p.runtimeURL(r, "/api/role/check-permission"), body, &resp); err != nil {
+		return false, "", err
 	}
-	if resp.Status == 2173 || resp.Status == 2174 {
-		return false, nil
+	if resp.Status == 2173 {
+		return false, "missing", nil
+	}
+	if resp.Status == 2174 {
+		return false, "enabled", nil
 	}
 	if resp.Status != 0 {
-		return false, errors.New("admin_role permission check failed")
+		return false, "", errors.New("admin_role permission check failed")
 	}
 	var data adminRoleCheckPermission
 	if err := json.Unmarshal(resp.Data, &data); err != nil {
-		return false, err
+		return false, "", err
 	}
-	return data.Allowed && data.RoleStatus == "enabled", nil
+	status := strings.TrimSpace(data.RoleStatus)
+	if status == "" {
+		status = "enabled"
+	}
+	return data.Allowed && status == "enabled", status, nil
+}
+
+func normalizeRoleStatus(detail adminRoleDetail) string {
+	status := strings.TrimSpace(detail.Status)
+	if status == "deleted" {
+		return "deleted"
+	}
+	if strings.TrimSpace(detail.DeletedAt) != "" {
+		return "deleted"
+	}
+	if status == "" {
+		return "missing"
+	}
+	return status
 }
 
 func (p *AdminAccountPlugin) doAdminRoleRequest(ctx context.Context, method, endpoint string, body any, out any) error {

@@ -34,14 +34,15 @@
         "error_codes": [
           {"status": 2201, "msg": "账号和密码参数非法"},
           {"status": 2202, "msg": "账号或密码错误"},
-          {"status": 2203, "msg": "账号已停用"},
+          {"status": 2203, "msg": "账号已停用或绑定角色已失效"},
           {"status": 2204, "msg": "登录失败"}
         ]
       },
       "response_example": {"status": 0, "data": {"account": {"account_id": "00000000-0000-0000-0000-000000000001", "account": "admin_root", "status": "enabled", "role_ids": ["00000000-0000-0000-0000-000000000001"], "is_super_admin": true, "created_at": "2026-05-20T10:00:00Z", "updated_at": "2026-05-20T10:00:00Z"}, "session_token": "4f6e8b2a9c1d0e3f4a5b6c7d8e9f0011", "expires_at": "2026-05-20T18:00:00Z", "ttl_seconds": 28800}, "msg": "ok"},
       "rules": [
         {"category": "constraint", "title": "账号密码长度限制", "body": "账号长度必须为 4-32，密码长度必须为 6-32；账号会先去除首尾空白。", "code_loc": "account_handlers.go:19-29"},
-        {"category": "error", "title": "禁用账号不可登录", "body": "账号存在且密码正确时，如果账号状态不是 enabled，仍返回账号已停用。", "code_loc": "account_handlers.go:40-47"}
+        {"category": "error", "title": "禁用账号不可登录", "body": "账号存在且密码正确时，如果账号状态不是 enabled，仍返回账号已停用。", "code_loc": "account_handlers.go:40-43"},
+        {"category": "security", "title": "失效角色账号不可登录", "body": "账号绑定的任一角色缺失、禁用或已删除时，登录返回 2203，不创建新会话。", "code_loc": "account_handlers.go:44-51"}
       ]
     },
     {
@@ -90,7 +91,7 @@
         {"name": "account", "type": "string", "required": true, "constraint": "去除首尾空白后长度 4-32，账号唯一", "description": "新账号名"},
         {"name": "password", "type": "string", "required": true, "constraint": "长度 6-32", "description": "新账号初始密码"},
         {"name": "status", "type": "string", "required": true, "constraint": "只能为 enabled 或 disabled", "description": "账号状态"},
-        {"name": "role_ids", "type": "array", "required": true, "item_type": "string", "constraint": "必须提供数组；每项为 UUID；重复项会去重排序；角色必须存在且启用", "description": "绑定角色 ID 列表"}
+        {"name": "role_ids", "type": "array", "required": true, "item_type": "string", "constraint": "必须提供数组；每项为 UUID；重复项会去重排序；角色必须存在、未删除且启用", "description": "绑定角色 ID 列表"}
       ],
       "request_example": {"operator_session_token": "4f6e8b2a9c1d0e3f4a5b6c7d8e9f0011", "account": "support_admin", "password": "Passw0rd", "status": "enabled", "role_ids": ["00000000-0000-0000-0000-000000000003"]},
       "response": {
@@ -111,14 +112,15 @@
           {"status": 2223, "msg": "账号参数非法"},
           {"status": 2224, "msg": "账号已存在"},
           {"status": 2225, "msg": "角色参数非法"},
-          {"status": 2226, "msg": "角色不存在或已停用"},
+          {"status": 2226, "msg": "角色不存在、已禁用或已删除"},
           {"status": 2227, "msg": "创建账号失败或账号管理权限校验失败"}
         ]
       },
       "response_example": {"status": 0, "data": {"account_id": "3b2b3f12-9b67-4c4a-991b-0d34a7f0c111", "account": "support_admin", "status": "enabled", "role_ids": ["00000000-0000-0000-0000-000000000003"], "is_super_admin": false, "created_at": "2026-05-20T10:05:00Z", "updated_at": "2026-05-20T10:05:00Z"}, "msg": "ok"},
       "rules": [
         {"category": "security", "title": "账号管理需要专门权限", "body": "创建账号要求操作者为超级管理员，或其角色命中 admin_account.manage 权限点。", "code_loc": "account_handlers.go:96-121"},
-        {"category": "constraint", "title": "角色绑定会去重排序", "body": "role_ids 必须是 UUID 数组，重复角色会被去重并排序后写入绑定表。", "code_loc": "account_validation.go:23-50"}
+        {"category": "constraint", "title": "角色绑定会去重排序", "body": "role_ids 必须是 UUID 数组，重复角色会被去重并排序后写入绑定表。", "code_loc": "account_validation.go:23-52"},
+        {"category": "constraint", "title": "失效角色不可绑定", "body": "创建账号前会查询 role 模块，角色缺失、禁用或已删除时返回 2226。", "code_loc": "account_validation.go:52-56"}
       ]
     },
     {
@@ -209,7 +211,7 @@
         {"name": "operator_session_token", "type": "string", "required": true, "constraint": "必须属于启用账号，且为超级管理员或拥有 admin_account.manage 权限", "description": "操作者会话令牌"},
         {"name": "account_id", "type": "string", "required": true, "constraint": "UUID 格式", "description": "目标账号 ID"},
         {"name": "status", "type": "string", "required": true, "constraint": "只能为 enabled 或 disabled", "description": "目标账号状态"},
-        {"name": "role_ids", "type": "array", "required": true, "item_type": "string", "constraint": "必须提供数组；每项为 UUID；重复项会去重排序；角色必须存在且启用", "description": "覆盖后的角色 ID 列表"}
+        {"name": "role_ids", "type": "array", "required": true, "item_type": "string", "constraint": "必须提供数组；每项为 UUID；重复项会去重排序；角色必须存在、未删除且启用", "description": "覆盖后的角色 ID 列表"}
       ],
       "request_example": {"operator_session_token": "4f6e8b2a9c1d0e3f4a5b6c7d8e9f0011", "account_id": "00000000-0000-0000-0000-000000000002", "status": "enabled", "role_ids": ["00000000-0000-0000-0000-000000000003"]},
       "response": {
@@ -230,7 +232,7 @@
           {"status": 2253, "msg": "account_id 参数非法"},
           {"status": 2254, "msg": "账号不存在"},
           {"status": 2255, "msg": "状态或角色参数非法"},
-          {"status": 2256, "msg": "角色不存在或已停用"},
+          {"status": 2256, "msg": "角色不存在、已禁用或已删除"},
           {"status": 2257, "msg": "普通后台账号不能修改超级管理员账号"},
           {"status": 2258, "msg": "更新账号失败或账号管理权限校验失败"}
         ]
@@ -293,7 +295,11 @@
         "fields": [
           {"name": "allowed", "type": "boolean", "description": "是否拥有权限"},
           {"name": "is_super_admin", "type": "boolean", "description": "是否超级管理员"},
-          {"name": "matched_role_ids", "type": "array", "item_type": "string", "description": "命中权限的角色 ID 列表；超级管理员为空数组"}
+          {"name": "matched_role_ids", "type": "array", "item_type": "string", "description": "命中权限的角色 ID 列表；超级管理员为空数组"},
+          {"name": "roles", "type": "array", "description": "普通账号绑定角色状态列表；role_status 可能为 enabled、disabled、deleted 或 missing", "fields": [
+            {"name": "role_id", "type": "string", "description": "角色 UUID"},
+            {"name": "role_status", "type": "string", "description": "角色状态"}
+          ]}
         ],
         "error_codes": [
           {"status": 2271, "msg": "请求体解析失败或会话令牌参数非法"},
@@ -303,7 +309,7 @@
           {"status": 2275, "msg": "权限校验失败"}
         ]
       },
-      "response_example": {"status": 0, "data": {"allowed": true, "is_super_admin": false, "matched_role_ids": ["00000000-0000-0000-0000-000000000003"]}, "msg": "ok"}
+      "response_example": {"status": 0, "data": {"allowed": true, "is_super_admin": false, "matched_role_ids": ["00000000-0000-0000-0000-000000000003"], "roles": [{"role_id": "00000000-0000-0000-0000-000000000003", "role_status": "enabled"}]}, "msg": "ok"}
     },
     {
       "method": "POST",
@@ -361,13 +367,13 @@
     },
     {
       "method": "POST",
-      "path": "/{admin_prefix}/api/account/admin/ping",
-      "endpoint_key": "POST /{admin_prefix}/api/account/admin/ping",
+      "path": "/api/account/admin/ping",
+      "endpoint_key": "POST /api/account/admin/ping",
       "title": "后台账号管理接口连通性检查",
       "description": "管理后台探活接口，成功时返回 pong。",
       "auth": "api_key",
       "params": [
-        {"name": "X-API-Key", "type": "string", "required": true, "constraint": "由 Runtime/admin_prefix 管理层校验", "description": "管理接口 API Key"}
+        {"name": "X-API-Key", "type": "string", "required": true, "constraint": "由 Runtime 管理层校验", "description": "管理接口 API Key"}
       ],
       "request_example": {},
       "response": {

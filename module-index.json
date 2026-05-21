@@ -1,8 +1,8 @@
 {
-  "name": "admin_account",
-  "title": "后台账号模块 — 负责后台运营账号的登录、当前账号信息查看、账号管理、角色绑定、权限范围识别和超级管理员识别。",
-  "summary": "后台账号模块 — 负责后台运营账号的登录、当前账号信息查看、账号管理、角色绑定、权限范围识别和超级管理员识别。",
-  "path": "modules/admin_account",
+  "name": "account",
+  "title": "账号公共模块 — 平台官方维护的基础设施模块，提供后台账号、登录、session、临时超管账号机制等能力。",
+  "summary": "账号公共模块 — 平台官方维护的基础设施模块，提供后台账号、登录、session、临时超管账号机制等能力。",
+  "path": "modules/account",
   "owner_tables": [],
   "public_apis": [
     {
@@ -57,11 +57,6 @@
     },
     {
       "method": "POST",
-      "path": "/{admin_prefix}/api/account/admin/ping",
-      "title": "后台账号管理接口连通性检查"
-    },
-    {
-      "method": "POST",
       "path": "/_internal/method-call/admin_account",
       "title": "内部方法调用"
     },
@@ -71,12 +66,18 @@
       "title": "内部定时任务触发"
     }
   ],
-  "admin_apis": [],
+  "admin_apis": [
+    {
+      "method": "POST",
+      "path": "/api/account/admin/ping",
+      "title": "后台账号管理接口连通性检查"
+    }
+  ],
   "dependencies": [],
   "configs": [],
   "env_vars": [
     {
-      "key": "ADMIN_ACCOUNTS_SESSION_TTL_SECONDS",
+      "key": "ACCOUNT_SESSION_TTL_SECONDS",
       "desc": "后台账号登录会话有效期（秒）",
       "required": false,
       "default": "28800"
@@ -87,25 +88,32 @@
   ],
   "hot_reload": {
     "enabled": true,
-    "safe": true,
+    "safe": false,
     "state_strategy": "externalized",
-    "has_background_workers": false,
+    "has_background_workers": true,
     "has_in_memory_state": false,
-    "shutdown_requirements": [],
-    "reload_risks": []
+    "shutdown_requirements": [
+      "后台 goroutine 必须监听 LifecycleCtx.Done() 并调用 RegisterWorker 协作退出"
+    ],
+    "reload_risks": [
+      "存在 time.NewTicker/Tick/AfterFunc，reload 时必须停止以避免重复触发"
+    ]
   },
   "background_tasks": {
-    "has_workers": false,
-    "worker_types": [],
-    "requires_unloading_state": false,
+    "has_workers": true,
+    "worker_types": [
+      "goroutine",
+      "ticker"
+    ],
+    "requires_unloading_state": true,
     "shutdown_timeout_ms": 1000,
     "exit_policy": "cooperative_cancel",
     "allows_new_work_while_unloading": false
   },
   "related_requirements": [
-    4
+    12
   ],
-  "last_generated_at": "2026-05-11T06:36:47Z",
+  "last_generated_at": "2026-05-20T08:07:47Z",
   "warnings": [
     "缺少 schema.json，表 ownership 未能确定"
   ]

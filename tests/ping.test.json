@@ -1,12 +1,12 @@
 {
-  "api": "POST /{admin_prefix}/api/account/admin/ping",
+  "api": "POST /api/account/admin/ping",
   "cases": [
     {
       "name": "admin ping 返回 pong",
       "actor": "admin",
       "depends_on": [],
       "method": "POST",
-      "path": "/{admin_prefix}/api/account/admin/ping",
+      "path": "/api/account/admin/ping",
       "expect_status": 200,
       "expect_business_status": 0,
       "expect_field": {
@@ -19,7 +19,7 @@
       "actor": "anonymous",
       "depends_on": [],
       "method": "POST",
-      "path": "/{admin_prefix}/api/account/admin/ping",
+      "path": "/api/account/admin/ping",
       "expect_status": 401
     }
   ]

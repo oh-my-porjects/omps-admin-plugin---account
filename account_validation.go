@@ -53,7 +53,8 @@ func (p *AdminAccountPlugin) cleanAndValidateRoles(w http.ResponseWriter, r *htt
 		out = append(out, roleID)
 	}
 	sort.Strings(out)
-	if !p.rolesAvailable(r, out) {
+	available, err := p.rolesAvailable(r, out)
+	if err != nil || !available {
 		writeJSON(w, unavailableCode, nil, "角色不存在或已停用")
 		return nil, false
 	}

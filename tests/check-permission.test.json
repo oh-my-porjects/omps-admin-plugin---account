@@ -22,6 +22,46 @@
       }
     },
     {
+      "name": "普通账号命中启用角色权限并返回角色状态",
+      "actor": "user",
+      "depends_on": [
+        "login.1"
+      ],
+      "method": "POST",
+      "path": "/api/account/check-permission",
+      "body": {
+        "session_token": "${operator_session_token}",
+        "permission_code": "system.manage"
+      },
+      "expect_status": 200,
+      "expect_business_status": 0,
+      "expect_field": {
+        "status": 0,
+        "data.allowed": true,
+        "data.is_super_admin": false
+      },
+      "expect_contains": "\"role_status\":\"enabled\""
+    },
+    {
+      "name": "绑定禁用和缺失角色时无权限并返回完整角色状态",
+      "actor": "user",
+      "depends_on": [],
+      "method": "POST",
+      "path": "/api/account/check-permission",
+      "body": {
+        "session_token": "${role_state_session_token}",
+        "permission_code": "system.manage"
+      },
+      "expect_status": 200,
+      "expect_business_status": 0,
+      "expect_field": {
+        "status": 0,
+        "data.allowed": false,
+        "data.is_super_admin": false
+      },
+      "expect_contains": "\"role_status\":\"disabled\"},{\"role_id\":\"99999999-9999-4999-8999-999999999999\",\"role_status\":\"missing\""
+    },
+    {
       "name": "会话过期返回 2272",
       "actor": "anonymous",
       "depends_on": [],

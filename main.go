@@ -132,8 +132,8 @@ var Routes = map[string]http.HandlerFunc{
 	"POST /api/account/_create-temporary-admin": handleCreateTemporaryAdmin,
 	// 前台接口示例（以 /api/ 开头）
 	"GET /api/account/hello": handleHello,
-	// 后台管理接口示例（以 /{admin_prefix}/api/ 开头，部署时替换为项目 UUID）
-	"POST /{admin_prefix}/api/account/admin/ping": handleAdminPing,
+	// 后台管理接口示例，鉴权由 Runtime 管理层统一处理。
+	"POST /api/account/admin/ping": handleAdminPing,
 	// 注：内部自测端点 POST /_internal/selftest 由 selftest.go 在 init() 时
 	// 注册进来，避免 var Routes 初始化循环依赖（selftest 需要回查 Routes）
 }
@@ -283,8 +283,8 @@ func (p *AdminAccountPlugin) handleAdminPing(w http.ResponseWriter, r *http.Requ
 
 func readSessionTTL(config map[string]string) time.Duration {
 	raw := "28800"
-	if config != nil && config["ADMIN_ACCOUNTS_SESSION_TTL_SECONDS"] != "" {
-		raw = config["ADMIN_ACCOUNTS_SESSION_TTL_SECONDS"]
+	if config != nil && config["ACCOUNT_SESSION_TTL_SECONDS"] != "" {
+		raw = config["ACCOUNT_SESSION_TTL_SECONDS"]
 	}
 	seconds, err := strconv.Atoi(raw)
 	if err != nil || seconds <= 0 {
