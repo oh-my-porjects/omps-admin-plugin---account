@@ -338,8 +338,40 @@ func (p *AdminAccountPlugin) currentAccountByToken(r *http.Request, token string
 	return acc, roles, state
 }
 
+func (p *AdminAccountPlugin) currentProjectAdminAccount(r *http.Request) (accountRecord, []string, sessionAccountState) {
+	if accountID := strings.TrimSpace(r.Header.Get("X-Account-ID")); accountID != "" {
+		acc, roles, ok, err := p.getAccountByID(r.Context(), accountID)
+		if err != nil {
+			return accountRecord{}, nil, sessionMissing
+		}
+		if !ok {
+			return accountRecord{}, nil, sessionAccountMissing
+		}
+		return acc, roles, sessionAccountOK
+	}
+
+	token := strings.TrimSpace(r.Header.Get("X-Admin-Session-Token"))
+	if token == "" {
+		token = strings.TrimSpace(r.Header.Get("X-Admin-Token"))
+	}
+	if token == "" {
+		token = strings.TrimSpace(strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer "))
+	}
+	if token == "" {
+		return accountRecord{}, nil, sessionMissing
+	}
+	acc, roles, state, err := p.getAccountByProjectAdminSessionState(r.Context(), token)
+	if err != nil {
+		return accountRecord{}, nil, sessionMissing
+	}
+	return acc, roles, state
+}
+
 func (p *AdminAccountPlugin) requireAccountManageToken(w http.ResponseWriter, r *http.Request, token string, invalidCode, deniedCode, failureCode int) (accountRecord, bool) {
 	acc, roles, state := p.currentAccountByToken(r, token)
+	if state == sessionMissing && strings.TrimSpace(token) == "" {
+		acc, roles, state = p.currentProjectAdminAccount(r)
+	}
 	if state != sessionAccountOK {
 		writeJSON(w, invalidCode, nil, "未登录")
 		return accountRecord{}, false

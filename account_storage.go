@@ -400,6 +400,36 @@ func (p *AdminAccountPlugin) getAccountBySessionState(ctx context.Context, token
 	return acc, roles, sessionAccountOK, nil
 }
 
+func (p *AdminAccountPlugin) getAccountByProjectAdminSessionState(ctx context.Context, token string) (accountRecord, []string, sessionAccountState, error) {
+	token = strings.TrimSpace(token)
+	if token == "" || p.db == nil {
+		return accountRecord{}, nil, sessionMissing, nil
+	}
+	var accountID string
+	err := p.db.QueryRowContext(ctx, `
+		SELECT COALESCE(account_id, '')
+		FROM rt_admin_sessions
+		WHERE token = $1 AND expires_at > NOW()
+	`, token).Scan(&accountID)
+	if sqlNoRows(err) {
+		return accountRecord{}, nil, sessionMissing, nil
+	}
+	if err != nil {
+		return accountRecord{}, nil, sessionMissing, err
+	}
+	if accountID == "" {
+		return accountRecord{}, nil, sessionAccountMissing, nil
+	}
+	acc, roles, ok, err := p.getAccountByID(ctx, accountID)
+	if err != nil {
+		return accountRecord{}, nil, sessionMissing, err
+	}
+	if !ok {
+		return accountRecord{}, nil, sessionAccountMissing, nil
+	}
+	return acc, roles, sessionAccountOK, nil
+}
+
 func sessionRedisKey(token string) string {
 	return "admin_accounts:session:" + token
 }
