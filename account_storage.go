@@ -434,25 +434,29 @@ func (p *AdminAccountPlugin) getAccountByProjectAdminSessionState(ctx context.Co
 	if accountID == "" {
 		return accountRecord{}, nil, sessionAccountMissing, nil
 	}
+	sessionRole = strings.TrimSpace(sessionRole)
+	if sessionRole == "" {
+		sessionRole = strings.TrimSpace(roleName)
+	}
 	acc, roles, ok, err := p.getAccountByID(ctx, accountID)
 	if err != nil {
 		return accountRecord{}, nil, sessionMissing, err
 	}
+	if isProjectAdminManageRole(sessionRole) {
+		if ok && acc.Status == "enabled" {
+			acc.IsSuperAdmin = true
+			return acc, roles, sessionAccountOK, nil
+		}
+		return accountRecord{
+			ID:           accountID,
+			Username:     accountID,
+			Status:       "enabled",
+			IsSuperAdmin: true,
+			CreatedAt:    time.Now().UTC(),
+			UpdatedAt:    time.Now().UTC(),
+		}, nil, sessionAccountOK, nil
+	}
 	if !ok {
-		sessionRole = strings.TrimSpace(sessionRole)
-		if sessionRole == "" {
-			sessionRole = strings.TrimSpace(roleName)
-		}
-		if isProjectAdminManageRole(sessionRole) {
-			return accountRecord{
-				ID:           accountID,
-				Username:     accountID,
-				Status:       "enabled",
-				IsSuperAdmin: true,
-				CreatedAt:    time.Now().UTC(),
-				UpdatedAt:    time.Now().UTC(),
-			}, nil, sessionAccountOK, nil
-		}
 		return accountRecord{}, nil, sessionAccountMissing, nil
 	}
 	return acc, roles, sessionAccountOK, nil
