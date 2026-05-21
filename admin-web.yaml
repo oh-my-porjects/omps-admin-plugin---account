@@ -10,10 +10,10 @@ menus:
     roles: [admin, developer, operator]
     views: [account_list]
   - key: roles
-    title: 账号角色绑定
+    title: 账号详情
     icon: team
     roles: [admin, developer]
-    views: [account_role_binding]
+    views: [account_detail]
 
 views:
   - key: account_list
@@ -23,8 +23,15 @@ views:
     columns:
       - field: id
         title: ID
+        hidden: true
+      - field: account_id
+        title: 账号 ID
+        render: short_id
       - field: account
         title: 账号名
+      - field: role_ids
+        title: 角色
+        render: json
       - field: status
         title: 状态
         render: enum
@@ -48,25 +55,84 @@ views:
         type: page
         title: 新建账号
         api: POST /api/account/create
+        fields:
+          - field: account
+            title: 账号名
+            type: string
+            required: true
+            placeholder: 4-32 个字符
+          - field: password
+            title: 初始密码
+            type: string
+            sensitive: true
+            required: true
+            placeholder: 6-32 个字符
+          - field: status
+            title: 状态
+            type: enum
+            required: true
+            default: enabled
+            enum:
+              enabled: 启用
+              disabled: 禁用
+          - field: role_ids
+            title: 角色 ID 列表
+            type: json
+            required: true
+            default: []
+            placeholder: '["角色ID"]，可填 []'
       - key: reset_pwd
         type: row
         title: 重置密码
-        api: POST /api/account/{id}/reset-password
+        api: PUT /api/account/reset-password
+        fields:
+          - field: account_id
+            title: 账号 ID
+            type: string
+            hidden: true
+            required: true
+          - field: new_password
+            title: 新密码
+            type: string
+            sensitive: true
+            required: true
+            placeholder: 6-32 个字符
       - key: toggle_ban
         type: row
-        title: 启用/禁用
-        api: POST /api/account/{id}/toggle-ban
+        title: 修改账号
+        api: PUT /api/account/update
         danger: true
+        confirm: 修改账号状态或角色绑定会立即影响该账号登录和权限，请确认
+        fields:
+          - field: account_id
+            title: 账号 ID
+            type: string
+            hidden: true
+            required: true
+          - field: status
+            title: 状态
+            type: enum
+            required: true
+            enum:
+              enabled: 启用
+              disabled: 禁用
+          - field: role_ids
+            title: 角色 ID 列表
+            type: json
+            required: true
+            placeholder: '["角色ID"]，可填 []'
 
-  - key: account_role_binding
+  - key: account_detail
     type: detail
-    title: 账号角色绑定
-    api: GET /api/account/role-bindings
+    title: 账号详情
+    api: GET /api/account/detail
     fields:
       - field: account_id
         title: 账号 ID
-      - field: roles
-        title: 已绑定角色
+      - field: account
+        title: 账号名
+      - field: role_ids
+        title: 角色
         render: json
 
 roles:
