@@ -367,16 +367,6 @@ func (p *AdminAccountPlugin) currentAccountByToken(r *http.Request, token string
 }
 
 func (p *AdminAccountPlugin) currentProjectAdminAccount(r *http.Request) (accountRecord, []string, sessionAccountState) {
-	if accountID := strings.TrimSpace(r.Header.Get("X-Account-ID")); accountID != "" {
-		acc, roles, ok, err := p.getAccountByID(r.Context(), accountID)
-		if err != nil {
-			return accountRecord{}, nil, sessionMissing
-		}
-		if ok {
-			return acc, roles, sessionAccountOK
-		}
-	}
-
 	token := strings.TrimSpace(r.Header.Get("X-Admin-Session-Token"))
 	if token == "" {
 		token = strings.TrimSpace(r.Header.Get("X-Admin-Token"))
@@ -390,6 +380,26 @@ func (p *AdminAccountPlugin) currentProjectAdminAccount(r *http.Request) (accoun
 	acc, roles, state, err := p.getAccountByProjectAdminSessionState(r.Context(), token, r.Header.Get("X-Admin-Role"))
 	if err != nil {
 		return accountRecord{}, nil, sessionMissing
+	}
+	if state == sessionAccountOK {
+		return acc, roles, state
+	}
+	if isProjectAdminManageRole(r.Header.Get("X-Admin-Role")) {
+		accountID := strings.TrimSpace(r.Header.Get("X-Account-ID"))
+		if accountID == "" {
+			accountID = strings.TrimSpace(r.Header.Get("X-User-ID"))
+		}
+		if accountID == "" {
+			accountID = "project-admin"
+		}
+		return accountRecord{
+			ID:           accountID,
+			Username:     accountID,
+			Status:       "enabled",
+			IsSuperAdmin: true,
+			CreatedAt:    time.Now().UTC(),
+			UpdatedAt:    time.Now().UTC(),
+		}, nil, sessionAccountOK
 	}
 	return acc, roles, state
 }

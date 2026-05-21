@@ -50,6 +50,8 @@ func TestRequireAccountManageTokenFallsBackToProjectAdminHeader(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodGet, "/api/account/list", nil)
 	req.Header.Set("X-Account-ID", rootAccountID)
+	req.Header.Set("X-Admin-Session-Token", "project-session")
+	req.Header.Set("X-Admin-Role", "admin")
 	rec := httptest.NewRecorder()
 
 	acc, ok := p.requireAccountManageToken(rec, req, "", 2231, 2232, 2235)
@@ -58,5 +60,35 @@ func TestRequireAccountManageTokenFallsBackToProjectAdminHeader(t *testing.T) {
 	}
 	if acc.ID != rootAccountID {
 		t.Fatalf("account id=%s, want %s", acc.ID, rootAccountID)
+	}
+}
+
+func TestRequireAccountManageTokenFallsBackWhenAccountRecordMissing(t *testing.T) {
+	p := &AdminAccountPlugin{}
+	req := httptest.NewRequest(http.MethodGet, "/api/account/list", nil)
+	req.Header.Set("X-Account-ID", "pD1BjYBEQbEc")
+	req.Header.Set("X-Admin-Session-Token", "project-session")
+	req.Header.Set("X-Admin-Role", "admin")
+	rec := httptest.NewRecorder()
+
+	acc, ok := p.requireAccountManageToken(rec, req, "", 2231, 2232, 2235)
+	if !ok {
+		t.Fatalf("requireAccountManageToken rejected project admin session: status=%d body=%s", rec.Code, rec.Body.String())
+	}
+	if !acc.IsSuperAdmin || acc.Status != "enabled" {
+		t.Fatalf("fallback account = %#v", acc)
+	}
+}
+
+func TestRequireAccountManageTokenRejectsProjectOperatorFallback(t *testing.T) {
+	p := &AdminAccountPlugin{}
+	req := httptest.NewRequest(http.MethodGet, "/api/account/list", nil)
+	req.Header.Set("X-Account-ID", "pD1BjYBEQbEc")
+	req.Header.Set("X-Admin-Session-Token", "project-session")
+	req.Header.Set("X-Admin-Role", "operator")
+	rec := httptest.NewRecorder()
+
+	if _, ok := p.requireAccountManageToken(rec, req, "", 2231, 2232, 2235); ok {
+		t.Fatal("operator project session should not manage accounts")
 	}
 }
