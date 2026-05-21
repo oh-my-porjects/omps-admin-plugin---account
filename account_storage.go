@@ -414,17 +414,17 @@ func (p *AdminAccountPlugin) getAccountBySessionState(ctx context.Context, token
 	return acc, roles, sessionAccountOK, nil
 }
 
-func (p *AdminAccountPlugin) getAccountByProjectAdminSessionState(ctx context.Context, token string) (accountRecord, []string, sessionAccountState, error) {
+func (p *AdminAccountPlugin) getAccountByProjectAdminSessionState(ctx context.Context, token, roleName string) (accountRecord, []string, sessionAccountState, error) {
 	token = strings.TrimSpace(token)
 	if token == "" || p.db == nil {
 		return accountRecord{}, nil, sessionMissing, nil
 	}
-	var accountID string
+	var accountID, sessionRole string
 	err := p.db.QueryRowContext(ctx, `
-		SELECT COALESCE(account_id, '')
+		SELECT COALESCE(account_id, ''), COALESCE(role_name, '')
 		FROM rt_admin_sessions
 		WHERE token = $1 AND expires_at > NOW()
-	`, token).Scan(&accountID)
+	`, token).Scan(&accountID, &sessionRole)
 	if sqlNoRows(err) {
 		return accountRecord{}, nil, sessionMissing, nil
 	}
@@ -439,9 +439,32 @@ func (p *AdminAccountPlugin) getAccountByProjectAdminSessionState(ctx context.Co
 		return accountRecord{}, nil, sessionMissing, err
 	}
 	if !ok {
+		sessionRole = strings.TrimSpace(sessionRole)
+		if sessionRole == "" {
+			sessionRole = strings.TrimSpace(roleName)
+		}
+		if isProjectAdminManageRole(sessionRole) {
+			return accountRecord{
+				ID:           accountID,
+				Username:     accountID,
+				Status:       "enabled",
+				IsSuperAdmin: true,
+				CreatedAt:    time.Now().UTC(),
+				UpdatedAt:    time.Now().UTC(),
+			}, nil, sessionAccountOK, nil
+		}
 		return accountRecord{}, nil, sessionAccountMissing, nil
 	}
 	return acc, roles, sessionAccountOK, nil
+}
+
+func isProjectAdminManageRole(roleName string) bool {
+	switch strings.TrimSpace(roleName) {
+	case "admin", "developer", "超级管理员", "开发者":
+		return true
+	default:
+		return false
+	}
 }
 
 func sessionRedisKey(token string) string {

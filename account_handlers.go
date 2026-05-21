@@ -372,10 +372,9 @@ func (p *AdminAccountPlugin) currentProjectAdminAccount(r *http.Request) (accoun
 		if err != nil {
 			return accountRecord{}, nil, sessionMissing
 		}
-		if !ok {
-			return accountRecord{}, nil, sessionAccountMissing
+		if ok {
+			return acc, roles, sessionAccountOK
 		}
-		return acc, roles, sessionAccountOK
 	}
 
 	token := strings.TrimSpace(r.Header.Get("X-Admin-Session-Token"))
@@ -388,7 +387,7 @@ func (p *AdminAccountPlugin) currentProjectAdminAccount(r *http.Request) (accoun
 	if token == "" {
 		return accountRecord{}, nil, sessionMissing
 	}
-	acc, roles, state, err := p.getAccountByProjectAdminSessionState(r.Context(), token)
+	acc, roles, state, err := p.getAccountByProjectAdminSessionState(r.Context(), token, r.Header.Get("X-Admin-Role"))
 	if err != nil {
 		return accountRecord{}, nil, sessionMissing
 	}
