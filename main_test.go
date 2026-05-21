@@ -3,7 +3,10 @@ package main
 import (
 	"context"
 	"log/slog"
+	"net/http"
+	"net/http/httptest"
 	"testing"
+	"time"
 )
 
 func TestPluginName(t *testing.T) {
@@ -27,5 +30,33 @@ func TestPluginShutdown(t *testing.T) {
 	defer cancel()
 	if err := Plugin.Shutdown(ctx); err != nil {
 		t.Errorf("Shutdown(ctx) 失败: %v", err)
+	}
+}
+
+func TestRequireAccountManageTokenFallsBackToProjectAdminHeader(t *testing.T) {
+	p := &AdminAccountPlugin{}
+	now := time.Now().UTC()
+	p.accounts = map[string]accountRecord{
+		rootAccountID: {
+			ID:           rootAccountID,
+			Username:     "root",
+			Status:       "enabled",
+			IsSuperAdmin: true,
+			CreatedAt:    now,
+			UpdatedAt:    now,
+		},
+	}
+	p.roles = map[string][]string{rootAccountID: {rootRoleID}}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/account/list", nil)
+	req.Header.Set("X-Account-ID", rootAccountID)
+	rec := httptest.NewRecorder()
+
+	acc, ok := p.requireAccountManageToken(rec, req, "", 2231, 2232, 2235)
+	if !ok {
+		t.Fatalf("requireAccountManageToken rejected project admin header: status=%d body=%s", rec.Code, rec.Body.String())
+	}
+	if acc.ID != rootAccountID {
+		t.Fatalf("account id=%s, want %s", acc.ID, rootAccountID)
 	}
 }
