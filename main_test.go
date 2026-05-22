@@ -35,6 +35,17 @@ func TestPluginShutdown(t *testing.T) {
 	}
 }
 
+func TestRuntimeURLFallsBackFromAdminProxyHost(t *testing.T) {
+	p := &AdminAccountPlugin{}
+	req := httptest.NewRequest(http.MethodGet, "/api/account/list", nil)
+	req.Host = "omps-shan-admin.link-api.com"
+	got := p.runtimeURL(req, "/api/role/detail")
+	want := "http://127.0.0.1:8080/api/role/detail"
+	if got != want {
+		t.Fatalf("runtimeURL = %s, want %s", got, want)
+	}
+}
+
 func TestRequireAccountManageTokenFallsBackToProjectAdminHeader(t *testing.T) {
 	p := &AdminAccountPlugin{}
 	now := time.Now().UTC()

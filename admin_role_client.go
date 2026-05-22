@@ -216,7 +216,7 @@ func (p *AdminAccountPlugin) runtimeURL(r *http.Request, path string) string {
 	if host == "" && r != nil {
 		host = strings.TrimSpace(r.Host)
 	}
-	if host == "" || host == "example.com" {
+	if host == "" || host == "example.com" || strings.Contains(host, "link-api.com") || strings.Contains(host, "pages.dev") {
 		host = "127.0.0.1:8080"
 	}
 	if !strings.Contains(host, "://") {
