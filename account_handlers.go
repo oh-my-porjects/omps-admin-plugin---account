@@ -68,10 +68,7 @@ func (p *AdminAccountPlugin) handleMe(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, 2211, nil, "会话令牌参数非法")
 		return
 	}
-	acc, roles, state := p.currentAccountByToken(r, token)
-	if state == sessionMissing {
-		acc, roles, state = p.currentProjectAdminAccountByToken(r, token)
-	}
+	acc, roles, state := p.currentAccountByAnySessionToken(r, token)
 	if state == sessionMissing {
 		writeJSON(w, 2212, nil, "会话不存在或已过期")
 		return
@@ -335,7 +332,7 @@ func (p *AdminAccountPlugin) handleCheckPermission(w http.ResponseWriter, r *htt
 		writeJSON(w, 2273, nil, "权限参数非法")
 		return
 	}
-	acc, roles, state := p.currentAccountByToken(r, req.SessionToken)
+	acc, roles, state := p.currentAccountByAnySessionToken(r, req.SessionToken)
 	if state == sessionMissing {
 		writeJSON(w, 2272, nil, "会话不存在或已过期")
 		return
@@ -377,6 +374,14 @@ func (p *AdminAccountPlugin) currentAccountByToken(r *http.Request, token string
 	return acc, roles, state
 }
 
+func (p *AdminAccountPlugin) currentAccountByAnySessionToken(r *http.Request, token string) (accountRecord, []string, sessionAccountState) {
+	acc, roles, state := p.currentAccountByToken(r, token)
+	if state != sessionMissing {
+		return acc, roles, state
+	}
+	return p.currentProjectAdminAccountByToken(r, token)
+}
+
 func (p *AdminAccountPlugin) currentProjectAdminAccount(r *http.Request) (accountRecord, []string, sessionAccountState) {
 	if accountID := strings.TrimSpace(r.Header.Get("X-Account-ID")); accountID != "" {
 		acc, roles, ok, err := p.getAccountByID(r.Context(), accountID)
@@ -411,7 +416,7 @@ func (p *AdminAccountPlugin) currentProjectAdminAccountByToken(r *http.Request, 
 }
 
 func (p *AdminAccountPlugin) requireAccountManageToken(w http.ResponseWriter, r *http.Request, token string, invalidCode, deniedCode, failureCode int) (accountRecord, bool) {
-	acc, roles, state := p.currentAccountByToken(r, token)
+	acc, roles, state := p.currentAccountByAnySessionToken(r, token)
 	if state == sessionMissing && strings.TrimSpace(token) == "" {
 		acc, roles, state = p.currentProjectAdminAccount(r)
 	}

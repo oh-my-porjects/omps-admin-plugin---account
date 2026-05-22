@@ -183,3 +183,79 @@ func TestHandleMeAcceptsProjectAdminSessionToken(t *testing.T) {
 		t.Fatalf("data=%+v, want project admin super account without role list", resp.Data)
 	}
 }
+
+func TestAccountManageAndPermissionAcceptProjectAdminSessionToken(t *testing.T) {
+	const token = "project-admin-token"
+	const accountID = "pD1BjYBEQbEc"
+	now := time.Now().UTC()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/role/detail":
+			writeTestJSON(t, w, 0, map[string]any{
+				"role_id": rootRoleID,
+				"status":  "enabled",
+				"permissions": []map[string]string{
+					{"code": "system.manage"},
+				},
+			})
+		case "/api/role/check-permission":
+			writeTestJSON(t, w, 0, map[string]any{"allowed": true, "role_status": "enabled"})
+		default:
+			t.Fatalf("unexpected role API path: %s", r.URL.Path)
+		}
+	}))
+	defer server.Close()
+	p := &AdminAccountPlugin{
+		runtimeAddr: server.URL,
+		accounts: map[string]accountRecord{
+			accountID: {
+				ID:           accountID,
+				Username:     "project-admin",
+				Status:       "enabled",
+				IsSuperAdmin: true,
+				CreatedAt:    now,
+				UpdatedAt:    now,
+			},
+		},
+		roles: map[string][]string{accountID: {rootRoleID}},
+		lookupProjectAdminSessionAccountID: func(ctx context.Context, gotToken string) (string, error) {
+			if gotToken != token {
+				t.Fatalf("token=%s, want %s", gotToken, token)
+			}
+			return accountID, nil
+		},
+	}
+
+	detailReq := httptest.NewRequest(http.MethodGet, "/api/account/detail?operator_session_token="+token+"&account_id="+accountID, nil)
+	detailRec := httptest.NewRecorder()
+	p.handleAccountDetail(detailRec, detailReq)
+	var detailResp struct {
+		Status int `json:"status"`
+		Data   struct {
+			AccountID string `json:"account_id"`
+		} `json:"data"`
+	}
+	if err := json.NewDecoder(detailRec.Body).Decode(&detailResp); err != nil {
+		t.Fatalf("decode detail response: %v", err)
+	}
+	if detailResp.Status != 0 || detailResp.Data.AccountID != accountID {
+		t.Fatalf("detail response status=%d data=%+v body=%s", detailResp.Status, detailResp.Data, detailRec.Body.String())
+	}
+
+	checkReq := httptest.NewRequest(http.MethodPost, "/api/account/check-permission", strings.NewReader(`{"session_token":"`+token+`","permission_code":"system.manage"}`))
+	checkRec := httptest.NewRecorder()
+	p.handleCheckPermission(checkRec, checkReq)
+	var checkResp struct {
+		Status int `json:"status"`
+		Data   struct {
+			Allowed      bool `json:"allowed"`
+			IsSuperAdmin bool `json:"is_super_admin"`
+		} `json:"data"`
+	}
+	if err := json.NewDecoder(checkRec.Body).Decode(&checkResp); err != nil {
+		t.Fatalf("decode check response: %v", err)
+	}
+	if checkResp.Status != 0 || !checkResp.Data.Allowed || !checkResp.Data.IsSuperAdmin {
+		t.Fatalf("check response status=%d data=%+v body=%s", checkResp.Status, checkResp.Data, checkRec.Body.String())
+	}
+}
