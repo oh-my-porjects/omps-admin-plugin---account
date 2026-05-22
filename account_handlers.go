@@ -70,6 +70,9 @@ func (p *AdminAccountPlugin) handleMe(w http.ResponseWriter, r *http.Request) {
 	}
 	acc, roles, state := p.currentAccountByToken(r, token)
 	if state == sessionMissing {
+		acc, roles, state = p.currentProjectAdminAccountByToken(r, token)
+	}
+	if state == sessionMissing {
 		writeJSON(w, 2212, nil, "会话不存在或已过期")
 		return
 	}
@@ -396,6 +399,10 @@ func (p *AdminAccountPlugin) currentProjectAdminAccount(r *http.Request) (accoun
 	if token == "" {
 		return accountRecord{}, nil, sessionMissing
 	}
+	return p.currentProjectAdminAccountByToken(r, token)
+}
+
+func (p *AdminAccountPlugin) currentProjectAdminAccountByToken(r *http.Request, token string) (accountRecord, []string, sessionAccountState) {
 	acc, roles, state, err := p.getAccountByProjectAdminSessionState(r.Context(), token)
 	if err != nil {
 		return accountRecord{}, nil, sessionMissing

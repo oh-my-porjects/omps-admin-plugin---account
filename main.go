@@ -202,18 +202,19 @@ func handleCheckPermission(w http.ResponseWriter, r *http.Request) {
 // 注意：不要在这个 struct 上添加 ServeHTTP 方法或 mux 字段。
 // 所有 HTTP 路由通过顶层 Routes 全局变量声明。
 type AdminAccountPlugin struct {
-	db             *sql.DB
-	rdb            *redis.Client
-	logger         *slog.Logger
-	lifecycleCtx   context.Context
-	registerWorker func() func()
-	isUnloading    func() bool
-	mu             sync.Mutex
-	accounts       map[string]accountRecord
-	roles          map[string][]string
-	sessionTTL     time.Duration
-	adminAPIKey    string
-	runtimeAddr    string
+	db                                 *sql.DB
+	rdb                                *redis.Client
+	logger                             *slog.Logger
+	lifecycleCtx                       context.Context
+	registerWorker                     func() func()
+	isUnloading                        func() bool
+	mu                                 sync.Mutex
+	accounts                           map[string]accountRecord
+	roles                              map[string][]string
+	sessionTTL                         time.Duration
+	adminAPIKey                        string
+	runtimeAddr                        string
+	lookupProjectAdminSessionAccountID func(ctx context.Context, token string) (string, error)
 
 	// WebSocket 推送 API 缓存（来自 PluginContext，业务函数想主动给客户端发消息时调）
 	push      func(ctx context.Context, userID, code string, data any) (int64, error)

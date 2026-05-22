@@ -134,3 +134,52 @@ func TestValidatePasswordRouteSupportsRuntimeAdminLogin(t *testing.T) {
 		t.Fatalf("data=%+v, want account_id=%s super admin", resp.Data, shortAccountID)
 	}
 }
+
+func TestHandleMeAcceptsProjectAdminSessionToken(t *testing.T) {
+	const token = "project-admin-token"
+	const accountID = "pD1BjYBEQbEc"
+	now := time.Now().UTC()
+	p := &AdminAccountPlugin{
+		accounts: map[string]accountRecord{
+			accountID: {
+				ID:           accountID,
+				Username:     "project-admin",
+				Status:       "enabled",
+				IsSuperAdmin: true,
+				CreatedAt:    now,
+				UpdatedAt:    now,
+			},
+		},
+		roles: map[string][]string{accountID: {rootRoleID}},
+		lookupProjectAdminSessionAccountID: func(ctx context.Context, gotToken string) (string, error) {
+			if gotToken != token {
+				t.Fatalf("token=%s, want %s", gotToken, token)
+			}
+			return accountID, nil
+		},
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/account/me?session_token="+token, nil)
+	rec := httptest.NewRecorder()
+	p.handleMe(rec, req)
+
+	var resp struct {
+		Status int `json:"status"`
+		Data   struct {
+			AccountID    string `json:"account_id"`
+			IsSuperAdmin bool   `json:"is_super_admin"`
+			Roles        []struct {
+				RoleID string `json:"role_id"`
+			} `json:"roles"`
+		} `json:"data"`
+	}
+	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if resp.Status != 0 {
+		t.Fatalf("status=%d body=%s", resp.Status, rec.Body.String())
+	}
+	if resp.Data.AccountID != accountID || !resp.Data.IsSuperAdmin || len(resp.Data.Roles) != 0 {
+		t.Fatalf("data=%+v, want project admin super account without role list", resp.Data)
+	}
+}
