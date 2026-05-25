@@ -10,8 +10,8 @@ package main
 //
 //   2. 想主动给某个用户发消息时，调 PluginContext.Push / Emit / Broadcast
 //
-//   3. 如果是登录模块：在 Init 里调 PluginContext.RegisterAuth 把鉴权回调交给 runtime
-//      （普通业务模块不需要这步）
+//   3. 如果是登录模块：在专用 auth provider 实现里调 PluginContext.RegisterAuth
+//      把鉴权回调交给 runtime（普通业务模块不要调用）
 //
 // 客户端协议：见 docs/ws-协议规范.md（项目根 docs 目录）
 
@@ -65,40 +65,8 @@ func (p *AdminAccountPlugin) handleTypingNotice(w http.ResponseWriter, r *http.R
 }
 
 // ============================================================================
-// 示例 3：登录模块注册鉴权回调
-// ============================================================================
-//
-// 仅"登录模块"需要这个；普通业务模块跳过本节
-//
-// 把下面三个回调改成你自己的实现（查 sessions 表 / 校验 JWT / 调外部鉴权服务都可以）
-
-func (p *AdminAccountPlugin) registerAuthIfLoginModule(ctx PluginContext) {
-	if ctx.RegisterAuth == nil {
-		return // 老 runtime 没有这个能力，不阻塞模块加载
-	}
-
-	verify := func(ctx context.Context, accessToken string) (userID string, expiresAt time.Time, refreshToken string, err error) {
-		// TODO: 查你的 sessions 表 / 校验 JWT
-		// userID, expiresAt, refreshToken = lookupSession(accessToken)
-		// 返回示例：
-		// return "user-123", time.Now().Add(time.Hour), "rt-abc...", nil
-		return "", time.Time{}, "", http.ErrNoCookie
-	}
-
-	refresh := func(ctx context.Context, refreshToken string) (newAccess, newRefresh string, newExpiresAt time.Time, err error) {
-		// TODO: 用 refresh token 换一组新 access + refresh
-		// 失败时返回 err，runtime 会发 EventAuthExpired 关连接，客户端跳登录页
-		return "", "", time.Time{}, http.ErrNoCookie
-	}
-
-	checkSession := func(ctx context.Context, userID, accessToken string) (valid bool, reason string) {
-		// TODO: 检查 session 是否仍有效（管理员是否封号、是否在别处登录被踢、是否手动注销）
-		// runtime 定时（默认 60s）调一次；返回 false 时立即踢人
-		return true, ""
-	}
-
-	ctx.RegisterAuth(verify, refresh, checkSession)
-}
+// 登录模块注册鉴权回调必须放在认证模块自己的实现里，不要从普通模块模板复制。
+// 认证模块还必须在 plugin.yaml 声明 capabilities.auth_provider。
 
 // ============================================================================
 // 把推送 API 缓存到 plugin 实例字段，方便业务函数取用
@@ -120,7 +88,6 @@ func (p *AdminAccountPlugin) registerAuthIfLoginModule(ctx PluginContext) {
 //       p.emit = ctx.Emit
 //       p.broadcast = ctx.Broadcast
 //       p.isOnline = ctx.IsOnline
-//       p.registerAuthIfLoginModule(ctx) // 登录模块才需要
 //       return nil
 //   }
 //

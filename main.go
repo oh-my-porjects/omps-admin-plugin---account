@@ -247,8 +247,6 @@ func (p *AdminAccountPlugin) Init(ctx PluginContext) error {
 	p.adminAPIKey = ctx.Config["ADMIN_API_KEY"]
 	p.runtimeAddr = ctx.Config["RUNTIME_ADDR"]
 	p.rdb = newRedisClient(ctx.Config)
-	// 仅登录模块需要：把鉴权回调注册给 runtime；普通业务模块这一行可删
-	p.registerAuthIfLoginModule(ctx)
 	// 建表、读 config；不要建 mux 或注册路由
 	if err := p.initStorage(ctx.LifecycleCtx); err != nil {
 		return err
