@@ -9,11 +9,6 @@ menus:
     icon: user
     roles: [admin, developer, operator]
     views: [account_list]
-  - key: roles
-    title: 账号详情
-    icon: team
-    roles: [admin, developer]
-    views: [account_detail]
 
 views:
   - key: account_list
@@ -47,10 +42,14 @@ views:
       - field: created_at
         title: 创建时间
         render: datetime
-      - field: last_login_at
-        title: 最后登录时间
+      - field: updated_at
+        title: 更新时间
         render: datetime
     actions:
+      - key: detail
+        type: row
+        title: 查看详情
+        target: account_detail
       - key: create
         type: page
         title: 新建账号
