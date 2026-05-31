@@ -120,6 +120,18 @@ views:
             type: json
             required: true
             placeholder: '["角色ID"]，可填 []'
+      - key: delete_account
+        type: row
+        title: 删除账号
+        api: POST /api/admin/account/delete
+        danger: true
+        confirm: 删除账号会同时清理账号角色绑定，操作不可恢复，请确认
+        fields:
+          - field: account_id
+            title: 账号 ID
+            type: string
+            hidden: true
+            required: true
 
   - key: account_detail
     type: detail
