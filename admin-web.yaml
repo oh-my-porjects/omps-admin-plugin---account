@@ -1,5 +1,3 @@
-# account 公共模块完整 admin-web spec（task/inner_plugin.md §5.2）
-
 module: account
 module_title: 账号管理
 
@@ -126,6 +124,7 @@ views:
         api: POST /api/admin/account/delete
         danger: true
         confirm: 删除账号会同时清理账号角色绑定，操作不可恢复，请确认
+        disabled_when: account_id == $current_account_id
         fields:
           - field: account_id
             title: 账号 ID
