@@ -8,74 +8,1543 @@
     {
       "method": "POST",
       "path": "/api/account/login",
-      "title": "后台账号登录"
+      "title": "后台账号登录",
+      "description": "使用后台账号和密码登录，成功后在 Redis 中创建后台会话令牌。",
+      "auth": "public",
+      "params": [
+        {
+          "constraint": "去除首尾空白后长度 4-32 个字符。",
+          "description": "后台账号登录名，用于定位要登录的后台账号记录。",
+          "name": "account",
+          "required": true,
+          "type": "string"
+        },
+        {
+          "constraint": "长度 6-32 个字符。",
+          "description": "后台账号登录密码，用于和服务端保存的密码哈希比对。",
+          "name": "password",
+          "required": true,
+          "type": "string"
+        }
+      ],
+      "response": {
+        "data_type": "object",
+        "description": "返回登录账号信息、会话令牌、会话过期时间和 TTL。",
+        "error_codes": [
+          {
+            "msg": "账号和密码参数非法",
+            "status": 2201
+          },
+          {
+            "msg": "账号或密码错误",
+            "status": 2202
+          },
+          {
+            "msg": "账号已停用或账号绑定角色已失效",
+            "status": 2203
+          },
+          {
+            "msg": "登录失败",
+            "status": 2204
+          }
+        ],
+        "fields": [
+          {
+            "description": "本次登录成功的后台账号资料，用于前端展示当前操作者身份。",
+            "fields": [
+              {
+                "description": "后台账号唯一标识，用于后续账号管理和角色绑定关联。",
+                "name": "account_id",
+                "type": "string"
+              },
+              {
+                "description": "后台账号登录名，用于后台界面展示和检索。",
+                "name": "account",
+                "type": "string"
+              },
+              {
+                "description": "账号启停状态；现有实现暂为字符串格式，enabled=可登录可使用，disabled=已停用不可登录。",
+                "name": "status",
+                "type": "string"
+              },
+              {
+                "description": "账号绑定的角色 ID 列表，用于后续聚合权限码。",
+                "item_type": "string",
+                "name": "role_ids",
+                "type": "array"
+              },
+              {
+                "description": "是否超级管理员；为 true 时可绕过普通角色权限校验。",
+                "name": "is_super_admin",
+                "type": "boolean"
+              },
+              {
+                "description": "账号创建时间；现有实现暂为 RFC3339 字符串格式。",
+                "name": "created_at",
+                "type": "string"
+              },
+              {
+                "description": "账号最近更新时间；现有实现暂为 RFC3339 字符串格式。",
+                "name": "updated_at",
+                "type": "string"
+              }
+            ],
+            "name": "account",
+            "type": "object"
+          },
+          {
+            "description": "后台会话令牌，后续查询当前账号和权限校验接口需要携带。",
+            "name": "session_token",
+            "type": "string"
+          },
+          {
+            "description": "会话过期时间；现有实现暂为 RFC3339 字符串格式。",
+            "name": "expires_at",
+            "type": "string"
+          },
+          {
+            "description": "会话有效期秒数，来自 ACCOUNT_SESSION_TTL_SECONDS 配置或默认值。",
+            "name": "ttl_seconds",
+            "type": "integer"
+          }
+        ]
+      },
+      "request_example": {
+        "account": "admin_root",
+        "password": "Root123456"
+      },
+      "response_example": {
+        "data": {
+          "account": {
+            "account": "admin_root",
+            "account_id": "00000000-0000-0000-0000-000000000001",
+            "created_at": "2026-05-31T06:00:00Z",
+            "is_super_admin": true,
+            "role_ids": [
+              "00000000-0000-0000-0000-000000000001"
+            ],
+            "status": "enabled",
+            "updated_at": "2026-05-31T06:00:00Z"
+          },
+          "expires_at": "2026-05-31T14:00:00Z",
+          "session_token": "4f6e8b2a9c1d0e3f4a5b6c7d8e9f0011",
+          "ttl_seconds": 28800
+        },
+        "msg": "ok",
+        "status": 0
+      }
     },
     {
       "method": "GET",
       "path": "/api/account/me",
-      "title": "查询当前后台账号"
+      "title": "查询当前后台账号",
+      "description": "按后台会话令牌查询当前账号、绑定角色状态和聚合权限码。",
+      "auth": "public",
+      "params": [
+        {
+          "constraint": "非空查询参数。",
+          "description": "登录接口返回的后台会话令牌，用于定位当前操作者账号。",
+          "name": "session_token",
+          "required": true,
+          "type": "string"
+        }
+      ],
+      "response": {
+        "data_type": "object",
+        "description": "返回当前后台账号身份、角色可用状态和启用角色聚合后的权限码。",
+        "error_codes": [
+          {
+            "msg": "会话令牌参数非法",
+            "status": 2211
+          },
+          {
+            "msg": "会话不存在或已过期",
+            "status": 2212
+          },
+          {
+            "msg": "账号不存在",
+            "status": 2213
+          },
+          {
+            "msg": "账号已禁用",
+            "status": 2214
+          },
+          {
+            "msg": "查询当前账号失败",
+            "status": 2215
+          }
+        ],
+        "fields": [
+          {
+            "description": "当前后台账号唯一标识，用于关联账号资料和后续操作审计。",
+            "name": "account_id",
+            "type": "string"
+          },
+          {
+            "description": "当前后台账号登录名，用于后台界面展示。",
+            "name": "account",
+            "type": "string"
+          },
+          {
+            "description": "账号启停状态；现有实现暂为字符串格式，enabled=可使用，disabled=已禁用。",
+            "name": "status",
+            "type": "string"
+          },
+          {
+            "description": "是否超级管理员；为 true 时权限码列表为空但具备管理权限。",
+            "name": "is_super_admin",
+            "type": "boolean"
+          },
+          {
+            "description": "当前账号绑定角色在 role 模块中的实时状态列表。",
+            "fields": [
+              {
+                "description": "绑定角色唯一标识，用于追踪权限来源。",
+                "name": "role_id",
+                "type": "string"
+              },
+              {
+                "description": "角色实时状态；现有实现暂为字符串格式，enabled=启用，disabled=禁用，deleted=已删除，missing=角色不存在。",
+                "name": "role_status",
+                "type": "string"
+              }
+            ],
+            "name": "roles",
+            "type": "array"
+          },
+          {
+            "description": "启用角色聚合后的权限码列表，用于前端控制菜单和操作入口。",
+            "item_type": "string",
+            "name": "permission_codes",
+            "type": "array"
+          }
+        ]
+      },
+      "request_example": {},
+      "response_example": {
+        "data": {
+          "account": "operator",
+          "account_id": "00000000-0000-0000-0000-000000000002",
+          "is_super_admin": false,
+          "permission_codes": [
+            "admin_account.manage"
+          ],
+          "roles": [
+            {
+              "role_id": "00000000-0000-0000-0000-000000000003",
+              "role_status": "enabled"
+            }
+          ],
+          "status": "enabled"
+        },
+        "msg": "ok",
+        "status": 0
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/account/_validate-password",
+      "title": "校验账号密码",
+      "description": "校验后台账号和密码是否有效，成功时返回基础账号身份和角色绑定。",
+      "auth": "public",
+      "params": [
+        {
+          "constraint": "去除首尾空白后长度 4-32 个字符。",
+          "description": "待校验的后台账号登录名，用于查找账号记录。",
+          "name": "account",
+          "required": true,
+          "type": "string"
+        },
+        {
+          "constraint": "长度 6-32 个字符。",
+          "description": "待校验的明文密码，用于和账号密码哈希比对。",
+          "name": "password",
+          "required": true,
+          "type": "string"
+        }
+      ],
+      "response": {
+        "data_type": "object",
+        "description": "返回通过密码校验的账号基础身份。",
+        "error_codes": [
+          {
+            "msg": "请求体解析失败或账号和密码参数非法",
+            "status": 2281
+          },
+          {
+            "msg": "账号或密码错误",
+            "status": 2282
+          },
+          {
+            "msg": "账号已停用",
+            "status": 2283
+          },
+          {
+            "msg": "账号校验失败",
+            "status": 2284
+          }
+        ],
+        "fields": [
+          {
+            "description": "通过校验的后台账号唯一标识，用于调用方建立本地身份上下文。",
+            "name": "account_id",
+            "type": "string"
+          },
+          {
+            "description": "通过校验的后台账号登录名。",
+            "name": "account",
+            "type": "string"
+          },
+          {
+            "description": "是否超级管理员，用于调用方判断是否可绕过普通角色权限。",
+            "name": "is_super_admin",
+            "type": "boolean"
+          },
+          {
+            "description": "账号当前绑定的角色 ID 列表，用于调用方继续做权限聚合。",
+            "item_type": "string",
+            "name": "role_ids",
+            "type": "array"
+          }
+        ]
+      },
+      "request_example": {
+        "account": "operator",
+        "password": "Passw0rd"
+      },
+      "response_example": {
+        "data": {
+          "account": "operator",
+          "account_id": "00000000-0000-0000-0000-000000000002",
+          "is_super_admin": false,
+          "role_ids": [
+            "00000000-0000-0000-0000-000000000003"
+          ]
+        },
+        "msg": "ok",
+        "status": 0
+      }
     },
     {
       "method": "POST",
       "path": "/api/account/create",
-      "title": "创建后台账号"
+      "title": "创建后台账号",
+      "description": "校验操作者账号管理权限后创建后台账号并绑定角色。",
+      "auth": "public",
+      "params": [
+        {
+          "constraint": "必须属于启用账号，且操作者是超级管理员或拥有 admin_account.manage 权限；为空时可由管理端请求头兜底。",
+          "description": "操作者后台会话令牌，用于确认谁在创建账号。",
+          "name": "operator_session_token",
+          "required": true,
+          "type": "string"
+        },
+        {
+          "constraint": "去除首尾空白后长度 4-32 个字符，账号名必须唯一。",
+          "description": "新后台账号登录名，用于后续登录和后台检索。",
+          "name": "account",
+          "required": true,
+          "type": "string"
+        },
+        {
+          "constraint": "长度 6-32 个字符。",
+          "description": "新后台账号初始密码，服务端仅保存哈希。",
+          "name": "password",
+          "required": true,
+          "type": "string"
+        },
+        {
+          "constraint": "现有实现暂为字符串枚举：enabled=创建后可登录，disabled=创建后不可登录。",
+          "description": "新账号启停状态，决定创建后是否允许登录。",
+          "name": "status",
+          "required": true,
+          "type": "string"
+        },
+        {
+          "constraint": "必须传数组；每项为 UUID 或 8-64 位短 ID；重复项会去重排序；所有角色必须存在且为 enabled。",
+          "description": "新账号绑定角色列表，用于决定账号可获得哪些后台权限。",
+          "item_type": "string",
+          "name": "role_ids",
+          "required": true,
+          "type": "array"
+        }
+      ],
+      "response": {
+        "data_type": "object",
+        "description": "返回新建后台账号资料。",
+        "error_codes": [
+          {
+            "msg": "请求体解析失败或未登录",
+            "status": 2221
+          },
+          {
+            "msg": "无账号管理权限",
+            "status": 2222
+          },
+          {
+            "msg": "账号参数非法",
+            "status": 2223
+          },
+          {
+            "msg": "账号已存在",
+            "status": 2224
+          },
+          {
+            "msg": "角色参数非法",
+            "status": 2225
+          },
+          {
+            "msg": "角色不存在或已停用",
+            "status": 2226
+          },
+          {
+            "msg": "创建账号失败或账号管理权限校验失败",
+            "status": 2227
+          }
+        ],
+        "fields": [
+          {
+            "description": "新建后台账号唯一标识，用于后续更新、重置密码或删除。",
+            "name": "account_id",
+            "type": "string"
+          },
+          {
+            "description": "新建后台账号登录名。",
+            "name": "account",
+            "type": "string"
+          },
+          {
+            "description": "账号启停状态；现有实现暂为字符串格式，enabled=可登录，disabled=不可登录。",
+            "name": "status",
+            "type": "string"
+          },
+          {
+            "description": "已写入的角色绑定 ID 列表，重复输入会被去重排序。",
+            "item_type": "string",
+            "name": "role_ids",
+            "type": "array"
+          },
+          {
+            "description": "是否超级管理员；普通创建接口创建的账号为 false。",
+            "name": "is_super_admin",
+            "type": "boolean"
+          },
+          {
+            "description": "账号创建时间；现有实现暂为 RFC3339 字符串格式。",
+            "name": "created_at",
+            "type": "string"
+          },
+          {
+            "description": "账号最近更新时间；现有实现暂为 RFC3339 字符串格式。",
+            "name": "updated_at",
+            "type": "string"
+          }
+        ]
+      },
+      "request_example": {
+        "account": "support_admin",
+        "operator_session_token": "4f6e8b2a9c1d0e3f4a5b6c7d8e9f0011",
+        "password": "Passw0rd",
+        "role_ids": [
+          "00000000-0000-0000-0000-000000000003"
+        ],
+        "status": "enabled"
+      },
+      "response_example": {
+        "data": {
+          "account": "support_admin",
+          "account_id": "A8kLm2Qz9P0r",
+          "created_at": "2026-05-31T06:05:00Z",
+          "is_super_admin": false,
+          "role_ids": [
+            "00000000-0000-0000-0000-000000000003"
+          ],
+          "status": "enabled",
+          "updated_at": "2026-05-31T06:05:00Z"
+        },
+        "msg": "ok",
+        "status": 0
+      }
     },
     {
       "method": "GET",
       "path": "/api/account/list",
-      "title": "查询后台账号列表"
+      "title": "查询后台账号列表",
+      "description": "校验账号管理权限后分页查询后台账号，可按状态和账号关键词筛选。",
+      "auth": "public",
+      "params": [
+        {
+          "constraint": "必须属于启用账号，且操作者是超级管理员或拥有 admin_account.manage 权限；为空时可由管理端请求头兜底。",
+          "description": "操作者后台会话令牌，用于确认是否有账号管理权限。",
+          "name": "operator_session_token",
+          "required": true,
+          "type": "string"
+        },
+        {
+          "constraint": "大于等于 1。",
+          "description": "要查询的页码，从 1 开始。",
+          "name": "page",
+          "required": true,
+          "type": "integer"
+        },
+        {
+          "constraint": "1-100。",
+          "description": "每页返回的账号数量。",
+          "name": "page_size",
+          "required": true,
+          "type": "integer"
+        },
+        {
+          "constraint": "现有实现暂为字符串枚举：空=不过滤，enabled=只看可登录账号，disabled=只看停用账号。",
+          "description": "账号启停状态筛选条件。",
+          "name": "status",
+          "required": false,
+          "type": "string"
+        },
+        {
+          "constraint": "最多 32 个字符，按小写账号名模糊匹配。",
+          "description": "账号名搜索关键词，用于后台账号列表检索。",
+          "name": "keyword",
+          "required": false,
+          "type": "string"
+        }
+      ],
+      "response": {
+        "data_type": "object",
+        "description": "返回分页账号列表；现有实现列表字段名为 items。",
+        "error_codes": [
+          {
+            "msg": "未登录",
+            "status": 2231
+          },
+          {
+            "msg": "无账号管理权限",
+            "status": 2232
+          },
+          {
+            "msg": "分页参数非法",
+            "status": 2233
+          },
+          {
+            "msg": "状态或关键词参数非法",
+            "status": 2234
+          },
+          {
+            "msg": "查询账号列表失败或账号管理权限校验失败",
+            "status": 2235
+          }
+        ],
+        "fields": [
+          {
+            "description": "当前页后台账号列表，按创建时间倒序返回。",
+            "fields": [
+              {
+                "description": "后台账号唯一标识，用于进入详情或执行管理操作。",
+                "name": "account_id",
+                "type": "string"
+              },
+              {
+                "description": "后台账号登录名，用于列表展示和检索。",
+                "name": "account",
+                "type": "string"
+              },
+              {
+                "description": "账号启停状态；现有实现暂为字符串格式，enabled=可登录，disabled=不可登录。",
+                "name": "status",
+                "type": "string"
+              },
+              {
+                "description": "账号绑定角色 ID 列表，用于展示权限来源。",
+                "item_type": "string",
+                "name": "role_ids",
+                "type": "array"
+              },
+              {
+                "description": "是否超级管理员，用于区分不可由普通管理员管理的账号。",
+                "name": "is_super_admin",
+                "type": "boolean"
+              },
+              {
+                "description": "账号创建时间；现有实现暂为 RFC3339 字符串格式。",
+                "name": "created_at",
+                "type": "string"
+              },
+              {
+                "description": "账号最近更新时间；现有实现暂为 RFC3339 字符串格式。",
+                "name": "updated_at",
+                "type": "string"
+              }
+            ],
+            "name": "items",
+            "type": "array"
+          },
+          {
+            "description": "符合筛选条件的账号总数，用于分页器计算页数。",
+            "name": "total",
+            "type": "integer"
+          },
+          {
+            "description": "当前返回的页码。",
+            "name": "page",
+            "type": "integer"
+          },
+          {
+            "description": "当前请求的每页数量。",
+            "name": "page_size",
+            "type": "integer"
+          }
+        ]
+      },
+      "request_example": {},
+      "response_example": {
+        "data": {
+          "items": [
+            {
+              "account": "admin_root",
+              "account_id": "00000000-0000-0000-0000-000000000001",
+              "created_at": "2026-05-31T06:00:00Z",
+              "is_super_admin": true,
+              "role_ids": [
+                "00000000-0000-0000-0000-000000000001"
+              ],
+              "status": "enabled",
+              "updated_at": "2026-05-31T06:00:00Z"
+            }
+          ],
+          "page": 1,
+          "page_size": 20,
+          "total": 1
+        },
+        "msg": "ok",
+        "status": 0
+      }
     },
     {
       "method": "GET",
       "path": "/api/account/detail",
-      "title": "查询后台账号详情"
+      "title": "查询后台账号详情",
+      "description": "校验账号管理权限后查询指定后台账号详情和绑定角色实时状态。",
+      "auth": "public",
+      "params": [
+        {
+          "constraint": "必须属于启用账号，且操作者是超级管理员或拥有 admin_account.manage 权限；为空时可由管理端请求头兜底。",
+          "description": "操作者后台会话令牌，用于确认是否有账号管理权限。",
+          "name": "operator_session_token",
+          "required": true,
+          "type": "string"
+        },
+        {
+          "constraint": "UUID 或 8-64 位短 ID。",
+          "description": "目标后台账号唯一标识，用于查询具体账号资料。",
+          "name": "account_id",
+          "required": true,
+          "type": "string"
+        }
+      ],
+      "response": {
+        "data_type": "object",
+        "description": "返回账号详情和角色实时状态。",
+        "error_codes": [
+          {
+            "msg": "未登录",
+            "status": 2241
+          },
+          {
+            "msg": "无账号管理权限",
+            "status": 2242
+          },
+          {
+            "msg": "account_id 参数非法",
+            "status": 2243
+          },
+          {
+            "msg": "账号不存在",
+            "status": 2244
+          },
+          {
+            "msg": "查询账号详情失败或账号管理权限校验失败",
+            "status": 2245
+          }
+        ],
+        "fields": [
+          {
+            "description": "目标后台账号唯一标识。",
+            "name": "account_id",
+            "type": "string"
+          },
+          {
+            "description": "目标后台账号登录名。",
+            "name": "account",
+            "type": "string"
+          },
+          {
+            "description": "账号启停状态；现有实现暂为字符串格式，enabled=可登录，disabled=不可登录。",
+            "name": "status",
+            "type": "string"
+          },
+          {
+            "description": "是否超级管理员，用于后台界面提示管理限制。",
+            "name": "is_super_admin",
+            "type": "boolean"
+          },
+          {
+            "description": "账号绑定角色在 role 模块中的实时状态。",
+            "fields": [
+              {
+                "description": "绑定角色唯一标识。",
+                "name": "role_id",
+                "type": "string"
+              },
+              {
+                "description": "角色实时状态；现有实现暂为字符串格式，enabled=启用，disabled=禁用，deleted=已删除，missing=角色不存在。",
+                "name": "role_status",
+                "type": "string"
+              }
+            ],
+            "name": "roles",
+            "type": "array"
+          },
+          {
+            "description": "账号创建时间；现有实现暂为 RFC3339 字符串格式。",
+            "name": "created_at",
+            "type": "string"
+          },
+          {
+            "description": "账号最近更新时间；现有实现暂为 RFC3339 字符串格式。",
+            "name": "updated_at",
+            "type": "string"
+          }
+        ]
+      },
+      "request_example": {},
+      "response_example": {
+        "data": {
+          "account": "operator",
+          "account_id": "00000000-0000-0000-0000-000000000002",
+          "created_at": "2026-05-31T06:00:00Z",
+          "is_super_admin": false,
+          "roles": [
+            {
+              "role_id": "00000000-0000-0000-0000-000000000003",
+              "role_status": "enabled"
+            }
+          ],
+          "status": "enabled",
+          "updated_at": "2026-05-31T06:10:00Z"
+        },
+        "msg": "ok",
+        "status": 0
+      }
     },
     {
       "method": "PUT",
       "path": "/api/account/update",
-      "title": "更新后台账号"
+      "title": "更新后台账号",
+      "description": "校验账号管理权限后更新账号启停状态，并覆盖账号角色绑定。",
+      "auth": "public",
+      "params": [
+        {
+          "constraint": "必须属于启用账号，且操作者是超级管理员或拥有 admin_account.manage 权限；为空时可由管理端请求头兜底。",
+          "description": "操作者后台会话令牌，用于确认是否有权限修改账号。",
+          "name": "operator_session_token",
+          "required": true,
+          "type": "string"
+        },
+        {
+          "constraint": "UUID 或 8-64 位短 ID。",
+          "description": "要修改的后台账号唯一标识。",
+          "name": "account_id",
+          "required": true,
+          "type": "string"
+        },
+        {
+          "constraint": "现有实现暂为字符串枚举：enabled=允许登录，disabled=禁止登录。",
+          "description": "目标账号的新启停状态。",
+          "name": "status",
+          "required": true,
+          "type": "string"
+        },
+        {
+          "constraint": "必须传数组；每项为 UUID 或 8-64 位短 ID；重复项会去重排序；所有角色必须存在且为 enabled。",
+          "description": "覆盖后的角色绑定列表，用于重新定义账号权限来源。",
+          "item_type": "string",
+          "name": "role_ids",
+          "required": true,
+          "type": "array"
+        }
+      ],
+      "response": {
+        "data_type": "object",
+        "description": "返回更新后的账号资料。",
+        "error_codes": [
+          {
+            "msg": "请求体解析失败或未登录",
+            "status": 2251
+          },
+          {
+            "msg": "无账号管理权限",
+            "status": 2252
+          },
+          {
+            "msg": "account_id 参数非法",
+            "status": 2253
+          },
+          {
+            "msg": "账号不存在",
+            "status": 2254
+          },
+          {
+            "msg": "状态参数非法或角色参数非法",
+            "status": 2255
+          },
+          {
+            "msg": "角色不存在或已停用",
+            "status": 2256
+          },
+          {
+            "msg": "普通后台账号不能修改超级管理员账号",
+            "status": 2257
+          },
+          {
+            "msg": "更新账号失败或账号管理权限校验失败",
+            "status": 2258
+          }
+        ],
+        "fields": [
+          {
+            "description": "已更新后台账号唯一标识。",
+            "name": "account_id",
+            "type": "string"
+          },
+          {
+            "description": "已更新后台账号登录名。",
+            "name": "account",
+            "type": "string"
+          },
+          {
+            "description": "更新后的账号启停状态；现有实现暂为字符串格式。",
+            "name": "status",
+            "type": "string"
+          },
+          {
+            "description": "更新后实际保存的角色绑定 ID 列表。",
+            "item_type": "string",
+            "name": "role_ids",
+            "type": "array"
+          },
+          {
+            "description": "是否超级管理员；普通管理员不能修改超级管理员账号。",
+            "name": "is_super_admin",
+            "type": "boolean"
+          },
+          {
+            "description": "账号创建时间；现有实现暂为 RFC3339 字符串格式。",
+            "name": "created_at",
+            "type": "string"
+          },
+          {
+            "description": "账号最近更新时间；现有实现暂为 RFC3339 字符串格式。",
+            "name": "updated_at",
+            "type": "string"
+          }
+        ]
+      },
+      "request_example": {
+        "account_id": "00000000-0000-0000-0000-000000000002",
+        "operator_session_token": "4f6e8b2a9c1d0e3f4a5b6c7d8e9f0011",
+        "role_ids": [
+          "00000000-0000-0000-0000-000000000003"
+        ],
+        "status": "enabled"
+      },
+      "response_example": {
+        "data": {
+          "account": "operator",
+          "account_id": "00000000-0000-0000-0000-000000000002",
+          "created_at": "2026-05-31T06:00:00Z",
+          "is_super_admin": false,
+          "role_ids": [
+            "00000000-0000-0000-0000-000000000003"
+          ],
+          "status": "enabled",
+          "updated_at": "2026-05-31T06:20:00Z"
+        },
+        "msg": "ok",
+        "status": 0
+      }
     },
     {
       "method": "PUT",
       "path": "/api/account/reset-password",
-      "title": "重置后台账号密码"
+      "title": "重置后台账号密码",
+      "description": "校验账号管理权限后重置指定后台账号密码。",
+      "auth": "public",
+      "params": [
+        {
+          "constraint": "必须属于启用账号，且操作者是超级管理员或拥有 admin_account.manage 权限；为空时可由管理端请求头兜底。",
+          "description": "操作者后台会话令牌，用于确认是否有权限重置密码。",
+          "name": "operator_session_token",
+          "required": true,
+          "type": "string"
+        },
+        {
+          "constraint": "UUID 或 8-64 位短 ID。",
+          "description": "要重置密码的后台账号唯一标识。",
+          "name": "account_id",
+          "required": true,
+          "type": "string"
+        },
+        {
+          "constraint": "长度 6-32 个字符。",
+          "description": "目标账号的新登录密码，服务端仅保存哈希。",
+          "name": "new_password",
+          "required": true,
+          "type": "string"
+        }
+      ],
+      "response": {
+        "data_type": "object",
+        "description": "返回被重置账号和更新时间。",
+        "error_codes": [
+          {
+            "msg": "请求体解析失败或未登录",
+            "status": 2261
+          },
+          {
+            "msg": "无账号管理权限",
+            "status": 2262
+          },
+          {
+            "msg": "account_id 参数非法",
+            "status": 2263
+          },
+          {
+            "msg": "账号不存在",
+            "status": 2264
+          },
+          {
+            "msg": "密码参数非法",
+            "status": 2265
+          },
+          {
+            "msg": "普通后台账号不能重置超级管理员密码",
+            "status": 2266
+          },
+          {
+            "msg": "重置密码失败或账号管理权限校验失败",
+            "status": 2267
+          }
+        ],
+        "fields": [
+          {
+            "description": "已重置密码的后台账号唯一标识。",
+            "name": "account_id",
+            "type": "string"
+          },
+          {
+            "description": "密码重置后的账号更新时间；现有实现暂为 RFC3339 字符串格式。",
+            "name": "updated_at",
+            "type": "string"
+          }
+        ]
+      },
+      "request_example": {
+        "account_id": "00000000-0000-0000-0000-000000000002",
+        "new_password": "NewPass123",
+        "operator_session_token": "4f6e8b2a9c1d0e3f4a5b6c7d8e9f0011"
+      },
+      "response_example": {
+        "data": {
+          "account_id": "00000000-0000-0000-0000-000000000002",
+          "updated_at": "2026-05-31T06:30:00Z"
+        },
+        "msg": "ok",
+        "status": 0
+      }
     },
     {
       "method": "POST",
       "path": "/api/account/check-permission",
-      "title": "检查后台权限"
+      "title": "检查后台权限",
+      "description": "检查后台会话对应账号是否拥有指定权限码。",
+      "auth": "public",
+      "params": [
+        {
+          "constraint": "非空字符串。",
+          "description": "登录接口返回的后台会话令牌，用于识别要校验权限的账号。",
+          "name": "session_token",
+          "required": true,
+          "type": "string"
+        },
+        {
+          "constraint": "匹配 ^[a-z0-9._-]{3,80}$。",
+          "description": "要校验的权限码，例如 admin_account.manage，用于判断账号是否允许执行某项后台操作。",
+          "name": "permission_code",
+          "required": true,
+          "type": "string"
+        }
+      ],
+      "response": {
+        "data_type": "object",
+        "description": "返回权限是否通过、是否超级管理员和命中的角色。",
+        "error_codes": [
+          {
+            "msg": "请求体解析失败或会话令牌参数非法",
+            "status": 2271
+          },
+          {
+            "msg": "会话不存在或已过期",
+            "status": 2272
+          },
+          {
+            "msg": "权限参数非法",
+            "status": 2273
+          },
+          {
+            "msg": "账号不存在或已禁用",
+            "status": 2274
+          },
+          {
+            "msg": "权限校验失败",
+            "status": 2275
+          }
+        ],
+        "fields": [
+          {
+            "description": "是否允许执行该权限码对应的后台操作。",
+            "name": "allowed",
+            "type": "boolean"
+          },
+          {
+            "description": "当前账号是否超级管理员；超级管理员直接允许且不返回角色命中。",
+            "name": "is_super_admin",
+            "type": "boolean"
+          },
+          {
+            "description": "命中该权限码的角色 ID 列表，用于展示授权来源。",
+            "item_type": "string",
+            "name": "matched_role_ids",
+            "type": "array"
+          },
+          {
+            "description": "非超级管理员账号返回的角色实时状态列表；超级管理员分支当前不返回该字段。",
+            "fields": [
+              {
+                "description": "参与权限判断的角色唯一标识。",
+                "name": "role_id",
+                "type": "string"
+              },
+              {
+                "description": "角色实时状态；现有实现暂为字符串格式，enabled=启用，disabled=禁用，deleted=已删除，missing=角色不存在。",
+                "name": "role_status",
+                "type": "string"
+              }
+            ],
+            "name": "roles",
+            "type": "array"
+          }
+        ]
+      },
+      "request_example": {
+        "permission_code": "admin_account.manage",
+        "session_token": "4f6e8b2a9c1d0e3f4a5b6c7d8e9f0011"
+      },
+      "response_example": {
+        "data": {
+          "allowed": true,
+          "is_super_admin": false,
+          "matched_role_ids": [
+            "00000000-0000-0000-0000-000000000003"
+          ],
+          "roles": [
+            {
+              "role_id": "00000000-0000-0000-0000-000000000003",
+              "role_status": "enabled"
+            }
+          ]
+        },
+        "msg": "ok",
+        "status": 0
+      }
     },
     {
       "method": "POST",
       "path": "/api/account/_create-temporary-admin",
-      "title": "创建临时超级管理员账号"
+      "title": "创建临时超级管理员账号",
+      "description": "供 admin-server 内部生成 10 分钟有效的临时超级管理员账号。",
+      "auth": "api_key",
+      "params": [],
+      "response": {
+        "data_type": "object",
+        "description": "返回一次性展示的临时账号、明文密码、过期时间和 TTL。",
+        "error_codes": [
+          {
+            "msg": "未授权访问内部接口",
+            "status": 2401
+          },
+          {
+            "msg": "数据库未就绪",
+            "status": 2402
+          },
+          {
+            "msg": "生成账号、密码或密码哈希失败",
+            "status": 2403
+          },
+          {
+            "msg": "更新临时超管账号失败",
+            "status": 2404
+          }
+        ],
+        "fields": [
+          {
+            "description": "随机生成的 8 位十六进制临时超级管理员登录名。",
+            "name": "account",
+            "type": "string"
+          },
+          {
+            "description": "随机生成的 16 位十六进制临时密码，仅本次响应返回。",
+            "name": "password",
+            "type": "string"
+          },
+          {
+            "description": "临时账号过期时间；现有实现暂为 RFC3339 字符串格式。",
+            "name": "expires_at",
+            "type": "string"
+          },
+          {
+            "description": "临时账号有效期秒数，当前固定为 600。",
+            "name": "ttl_seconds",
+            "type": "integer"
+          }
+        ]
+      },
+      "request_example": {},
+      "response_example": {
+        "data": {
+          "account": "a1b2c3d4",
+          "expires_at": "2026-05-31T06:40:00Z",
+          "password": "9f8e7d6c5b4a3210",
+          "ttl_seconds": 600
+        },
+        "msg": "ok",
+        "status": 0
+      }
     },
     {
       "method": "GET",
       "path": "/api/account/hello",
-      "title": "查询账号模块元信息"
+      "title": "查询账号模块元信息",
+      "description": "返回账号模块名称和当前版本。",
+      "auth": "public",
+      "params": [],
+      "response": {
+        "data_type": "object",
+        "description": "返回模块名称和版本。",
+        "error_codes": [
+          {
+            "msg": "运行时写响应失败时可能由 HTTP 层返回错误",
+            "status": 500
+          }
+        ],
+        "fields": [
+          {
+            "description": "模块运行名称，固定为 account。",
+            "name": "module",
+            "type": "string"
+          },
+          {
+            "description": "当前加载的模块版本，本地未注入时为 dev。",
+            "name": "version",
+            "type": "string"
+          }
+        ]
+      },
+      "request_example": {},
+      "response_example": {
+        "data": {
+          "module": "account",
+          "version": "dev"
+        },
+        "msg": "ok",
+        "status": 0
+      }
     },
     {
       "method": "POST",
       "path": "/_internal/method-call/admin_account",
-      "title": "内部方法调用"
+      "title": "内部方法调用",
+      "description": "供 runtime 内部按方法名调用模块注册方法。",
+      "auth": "api_key",
+      "params": [
+        {
+          "constraint": "必须是 Methods 表中已注册的方法名。",
+          "description": "要调用的内部方法名称，用于在模块 Methods 表中定位处理函数。",
+          "name": "method",
+          "required": true,
+          "type": "string"
+        },
+        {
+          "constraint": "自由 JSON 对象，具体结构由目标内部方法决定。",
+          "description": "传给内部方法的动态参数；当前框架不固定子字段。",
+          "fields": [],
+          "name": "args",
+          "required": false,
+          "type": "object"
+        }
+      ],
+      "response": {
+        "data_type": "object",
+        "description": "返回内部方法执行结果；data 结构由被调用方法决定。",
+        "error_codes": [
+          {
+            "msg": "X-Internal-Token 缺失或不匹配时 HTTP 401 unauthorized",
+            "status": 401
+          },
+          {
+            "msg": "请求体解析失败、method 为空、方法未注册、方法返回错误或 panic",
+            "status": 1
+          }
+        ],
+        "fields": [
+          {
+            "description": "示例方法返回的模块标识，当前注册示例值为 admin_account。",
+            "name": "module",
+            "type": "string"
+          },
+          {
+            "description": "示例方法原样回显的动态 args；结构由调用方传入。",
+            "fields": [],
+            "name": "echo",
+            "type": "object"
+          }
+        ]
+      },
+      "request_example": {
+        "args": {
+          "trace_id": "demo-001"
+        },
+        "method": "AdminAccountSelftestEcho"
+      },
+      "response_example": {
+        "data": {
+          "echo": {
+            "trace_id": "demo-001"
+          },
+          "module": "admin_account"
+        },
+        "msg": "",
+        "status": 0
+      }
     },
     {
       "method": "POST",
       "path": "/_internal/scheduled-trigger/admin_account",
-      "title": "内部定时任务触发"
+      "title": "内部定时任务触发",
+      "description": "供 runtime 内部手动触发模块注册的定时任务，并以 SSE 返回执行日志。",
+      "auth": "api_key",
+      "params": [
+        {
+          "constraint": "必须是 ScheduledTasks 表中已注册的任务名。",
+          "description": "要手动触发的定时任务名称，用于定位模块内任务函数。",
+          "name": "task_name",
+          "required": true,
+          "type": "string"
+        }
+      ],
+      "response": {
+        "data_type": "null",
+        "description": "成功时返回 text/event-stream 日志流，不使用统一 JSON data 包装。",
+        "error_codes": [
+          {
+            "msg": "X-Internal-Token 缺失或不匹配时 HTTP 401 unauthorized",
+            "status": 401
+          },
+          {
+            "msg": "请求体解析失败或 task_name 为空",
+            "status": 400
+          },
+          {
+            "msg": "未注册的定时任务",
+            "status": 404
+          }
+        ],
+        "fields": []
+      },
+      "request_example": {
+        "task_name": "admin_account_selftest_task"
+      },
+      "response_example": {
+        "data": "data: [2026-05-31T06:00:00Z] 任务 admin_account_selftest_task 开始执行\n\ndata: admin_account selftest task executed\n\n",
+        "msg": "",
+        "status": 0
+      }
     }
   ],
   "admin_apis": [
     {
       "method": "POST",
       "path": "/api/admin/account/delete",
-      "title": "删除账号"
+      "title": "删除后台账号",
+      "description": "校验账号管理权限后删除指定后台账号及其角色绑定。",
+      "auth": "api_key",
+      "params": [
+        {
+          "constraint": "必须属于启用账号，且操作者是超级管理员或拥有 admin_account.manage 权限；为空时可由管理端请求头兜底。",
+          "description": "操作者后台会话令牌，用于确认删除权限。",
+          "name": "operator_session_token",
+          "required": true,
+          "type": "string"
+        },
+        {
+          "constraint": "UUID 或 8-64 位短 ID；不能是操作者自己的账号。",
+          "description": "要删除的后台账号唯一标识。",
+          "name": "account_id",
+          "required": true,
+          "type": "string"
+        }
+      ],
+      "response": {
+        "data_type": "null",
+        "description": "删除成功时 data 为 null。",
+        "error_codes": [
+          {
+            "msg": "请求体解析失败或未登录",
+            "status": 2291
+          },
+          {
+            "msg": "无账号管理权限",
+            "status": 2292
+          },
+          {
+            "msg": "account_id 参数非法",
+            "status": 2293
+          },
+          {
+            "msg": "账号不存在",
+            "status": 2294
+          },
+          {
+            "msg": "当前账号不能删除自己",
+            "status": 2295
+          },
+          {
+            "msg": "普通后台账号不能删除超级管理员账号",
+            "status": 2296
+          },
+          {
+            "msg": "删除账号失败或账号管理权限校验失败",
+            "status": 2297
+          }
+        ],
+        "fields": []
+      },
+      "request_example": {
+        "account_id": "A8kLm2Qz9P0r",
+        "operator_session_token": "4f6e8b2a9c1d0e3f4a5b6c7d8e9f0011"
+      },
+      "response_example": {
+        "data": null,
+        "msg": "ok",
+        "status": 0
+      }
     },
     {
       "method": "POST",
       "path": "/api/account/admin/ping",
-      "title": "后台账号管理接口连通性检查"
+      "title": "后台账号管理接口探活",
+      "description": "用于后台管理页检查账号模块管理接口是否可达。",
+      "auth": "public",
+      "params": [],
+      "response": {
+        "data_type": "null",
+        "description": "接口可达时 data 为 null，msg 为 pong。",
+        "error_codes": [
+          {
+            "msg": "运行时写响应失败时可能由 HTTP 层返回错误",
+            "status": 500
+          }
+        ],
+        "fields": []
+      },
+      "request_example": {},
+      "response_example": {
+        "data": null,
+        "msg": "pong",
+        "status": 0
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/_internal/method-call/admin_account",
+      "title": "内部方法调用",
+      "description": "供 runtime 内部按方法名调用模块注册方法。",
+      "auth": "api_key",
+      "params": [
+        {
+          "constraint": "必须是 Methods 表中已注册的方法名。",
+          "description": "要调用的内部方法名称，用于在模块 Methods 表中定位处理函数。",
+          "name": "method",
+          "required": true,
+          "type": "string"
+        },
+        {
+          "constraint": "自由 JSON 对象，具体结构由目标内部方法决定。",
+          "description": "传给内部方法的动态参数；当前框架不固定子字段。",
+          "fields": [],
+          "name": "args",
+          "required": false,
+          "type": "object"
+        }
+      ],
+      "response": {
+        "data_type": "object",
+        "description": "返回内部方法执行结果；data 结构由被调用方法决定。",
+        "error_codes": [
+          {
+            "msg": "X-Internal-Token 缺失或不匹配时 HTTP 401 unauthorized",
+            "status": 401
+          },
+          {
+            "msg": "请求体解析失败、method 为空、方法未注册、方法返回错误或 panic",
+            "status": 1
+          }
+        ],
+        "fields": [
+          {
+            "description": "示例方法返回的模块标识，当前注册示例值为 admin_account。",
+            "name": "module",
+            "type": "string"
+          },
+          {
+            "description": "示例方法原样回显的动态 args；结构由调用方传入。",
+            "fields": [],
+            "name": "echo",
+            "type": "object"
+          }
+        ]
+      },
+      "request_example": {
+        "args": {
+          "trace_id": "demo-001"
+        },
+        "method": "AdminAccountSelftestEcho"
+      },
+      "response_example": {
+        "data": {
+          "echo": {
+            "trace_id": "demo-001"
+          },
+          "module": "admin_account"
+        },
+        "msg": "",
+        "status": 0
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/_internal/scheduled-trigger/admin_account",
+      "title": "内部定时任务触发",
+      "description": "供 runtime 内部手动触发模块注册的定时任务，并以 SSE 返回执行日志。",
+      "auth": "api_key",
+      "params": [
+        {
+          "constraint": "必须是 ScheduledTasks 表中已注册的任务名。",
+          "description": "要手动触发的定时任务名称，用于定位模块内任务函数。",
+          "name": "task_name",
+          "required": true,
+          "type": "string"
+        }
+      ],
+      "response": {
+        "data_type": "null",
+        "description": "成功时返回 text/event-stream 日志流，不使用统一 JSON data 包装。",
+        "error_codes": [
+          {
+            "msg": "X-Internal-Token 缺失或不匹配时 HTTP 401 unauthorized",
+            "status": 401
+          },
+          {
+            "msg": "请求体解析失败或 task_name 为空",
+            "status": 400
+          },
+          {
+            "msg": "未注册的定时任务",
+            "status": 404
+          }
+        ],
+        "fields": []
+      },
+      "request_example": {
+        "task_name": "admin_account_selftest_task"
+      },
+      "response_example": {
+        "data": "data: [2026-05-31T06:00:00Z] 任务 admin_account_selftest_task 开始执行\n\ndata: admin_account selftest task executed\n\n",
+        "msg": "",
+        "status": 0
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/account/_create-temporary-admin",
+      "title": "创建临时超级管理员账号",
+      "description": "供 admin-server 内部生成 10 分钟有效的临时超级管理员账号。",
+      "auth": "api_key",
+      "params": [],
+      "response": {
+        "data_type": "object",
+        "description": "返回一次性展示的临时账号、明文密码、过期时间和 TTL。",
+        "error_codes": [
+          {
+            "msg": "未授权访问内部接口",
+            "status": 2401
+          },
+          {
+            "msg": "数据库未就绪",
+            "status": 2402
+          },
+          {
+            "msg": "生成账号、密码或密码哈希失败",
+            "status": 2403
+          },
+          {
+            "msg": "更新临时超管账号失败",
+            "status": 2404
+          }
+        ],
+        "fields": [
+          {
+            "description": "随机生成的 8 位十六进制临时超级管理员登录名。",
+            "name": "account",
+            "type": "string"
+          },
+          {
+            "description": "随机生成的 16 位十六进制临时密码，仅本次响应返回。",
+            "name": "password",
+            "type": "string"
+          },
+          {
+            "description": "临时账号过期时间；现有实现暂为 RFC3339 字符串格式。",
+            "name": "expires_at",
+            "type": "string"
+          },
+          {
+            "description": "临时账号有效期秒数，当前固定为 600。",
+            "name": "ttl_seconds",
+            "type": "integer"
+          }
+        ]
+      },
+      "request_example": {},
+      "response_example": {
+        "data": {
+          "account": "a1b2c3d4",
+          "expires_at": "2026-05-31T06:40:00Z",
+          "password": "9f8e7d6c5b4a3210",
+          "ttl_seconds": 600
+        },
+        "msg": "ok",
+        "status": 0
+      }
     }
   ],
   "dependencies": [],
@@ -88,19 +1557,22 @@
       "default": "28800"
     }
   ],
+  "capabilities": {},
   "entry_files": [
     "main.go"
   ],
   "hot_reload": {
     "enabled": true,
-    "safe": true,
+    "safe": false,
     "state_strategy": "externalized",
     "has_background_workers": true,
     "has_in_memory_state": false,
     "shutdown_requirements": [
       "后台 goroutine 必须监听 LifecycleCtx.Done() 并调用 RegisterWorker 协作退出"
     ],
-    "reload_risks": []
+    "reload_risks": [
+      "存在 time.NewTicker/Tick/AfterFunc，reload 时必须停止以避免重复触发"
+    ]
   },
   "background_tasks": {
     "has_workers": true,
@@ -114,11 +1586,13 @@
     "allows_new_work_while_unloading": false
   },
   "related_requirements": [
+    77,
     14,
     12
   ],
-  "last_generated_at": "2026-05-20T08:07:47Z",
+  "last_generated_at": "2026-05-31T14:22:28Z",
   "warnings": [
+    "已合并 API 接口表中的 3 条接口",
     "缺少 schema.json，表 ownership 未能确定"
   ]
 }
