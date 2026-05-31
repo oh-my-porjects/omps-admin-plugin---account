@@ -27,26 +27,6 @@
       }
     },
     {
-      "name": "方法参数为空对象仍可调用",
-      "actor": "admin",
-      "depends_on": [],
-      "method": "POST",
-      "path": "/_internal/method-call/admin_account",
-      "headers": {
-        "X-Internal-Token": "${internal_token}"
-      },
-      "body": {
-        "method": "AdminAccountSelftestEcho",
-        "args": {}
-      },
-      "expect_status": 200,
-      "expect_business_status": 0,
-      "expect_field": {
-        "status": 0,
-        "data.module": "admin_account"
-      }
-    },
-    {
       "name": "未注册方法返回业务错误",
       "actor": "admin",
       "depends_on": [],

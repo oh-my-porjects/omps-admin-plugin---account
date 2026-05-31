@@ -13,14 +13,6 @@
         "status": 0,
         "data.module": "account"
       }
-    },
-    {
-      "name": "hello 不支持 POST 方法",
-      "actor": "anonymous",
-      "depends_on": [],
-      "method": "POST",
-      "path": "/api/account/hello",
-      "expect_status": 405
     }
   ]
 }

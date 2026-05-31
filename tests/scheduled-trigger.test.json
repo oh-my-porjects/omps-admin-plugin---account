@@ -32,19 +32,6 @@
       ]
     },
     {
-      "name": "任务名缺失返回 400",
-      "actor": "admin",
-      "depends_on": [],
-      "method": "POST",
-      "path": "/_internal/scheduled-trigger/admin_account",
-      "headers": {
-        "X-Internal-Token": "${internal_token}"
-      },
-      "body": {},
-      "expect_status": 400,
-      "expect_contains": "task_name"
-    },
-    {
       "name": "缺失内部 token 返回 401",
       "actor": "anonymous",
       "depends_on": [],

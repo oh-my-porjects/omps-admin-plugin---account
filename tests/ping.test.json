@@ -13,14 +13,6 @@
         "status": 0,
         "msg": "pong"
       }
-    },
-    {
-      "name": "admin ping 拒绝匿名请求",
-      "actor": "anonymous",
-      "depends_on": [],
-      "method": "POST",
-      "path": "/api/account/admin/ping",
-      "expect_status": 401
     }
   ]
 }

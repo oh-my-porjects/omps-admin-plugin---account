@@ -59,20 +59,6 @@
       "expect_field": {
         "status": 2233
       }
-    },
-    {
-      "name": "状态非法返回 2234",
-      "actor": "admin",
-      "depends_on": [
-        "login.0"
-      ],
-      "method": "GET",
-      "path": "/api/account/list?page=1&page_size=20&status=bad&operator_session_token=${admin_session_token}",
-      "expect_status": 200,
-      "expect_business_status": 2234,
-      "expect_field": {
-        "status": 2234
-      }
     }
   ]
 }

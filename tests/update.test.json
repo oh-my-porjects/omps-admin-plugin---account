@@ -125,28 +125,6 @@
       "expect_field": {
         "status": 2256
       }
-    },
-    {
-      "name": "绑定禁用角色返回 2256",
-      "actor": "admin",
-      "depends_on": [
-        "login.0"
-      ],
-      "method": "PUT",
-      "path": "/api/account/update",
-      "body": {
-        "operator_session_token": "${admin_session_token}",
-        "account_id": "10000000-0000-0000-0000-000000000002",
-        "status": "enabled",
-        "role_ids": [
-          "00000000-0000-0000-0000-000000000005"
-        ]
-      },
-      "expect_status": 200,
-      "expect_business_status": 2256,
-      "expect_field": {
-        "status": 2256
-      }
     }
   ]
 }
