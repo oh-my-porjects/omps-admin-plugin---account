@@ -69,6 +69,72 @@
       }
     },
     {
+      "name": "角色 ID 列表缺失返回 2225",
+      "actor": "admin",
+      "depends_on": [
+        "login.0"
+      ],
+      "method": "POST",
+      "path": "/api/account/create",
+      "body": {
+        "operator_session_token": "${admin_session_token}",
+        "account": "${range_tag}missing_roles_${rand:8}",
+        "password": "Passw0rd!",
+        "status": "enabled"
+      },
+      "expect_status": 200,
+      "expect_business_status": 2225,
+      "expect_field": {
+        "status": 2225
+      }
+    },
+    {
+      "name": "角色 ID 非法返回 2225",
+      "actor": "admin",
+      "depends_on": [
+        "login.0"
+      ],
+      "method": "POST",
+      "path": "/api/account/create",
+      "body": {
+        "operator_session_token": "${admin_session_token}",
+        "account": "${range_tag}bad_role_${rand:8}",
+        "password": "Passw0rd!",
+        "status": "enabled",
+        "role_ids": [
+          "bad-role-id!"
+        ]
+      },
+      "expect_status": 200,
+      "expect_business_status": 2225,
+      "expect_field": {
+        "status": 2225
+      }
+    },
+    {
+      "name": "绑定不存在角色返回 2226",
+      "actor": "admin",
+      "depends_on": [
+        "login.0"
+      ],
+      "method": "POST",
+      "path": "/api/account/create",
+      "body": {
+        "operator_session_token": "${admin_session_token}",
+        "account": "${range_tag}missing_role_${rand:8}",
+        "password": "Passw0rd!",
+        "status": "enabled",
+        "role_ids": [
+          "99999999-9999-4999-8999-999999999999"
+        ]
+      },
+      "expect_status": 200,
+      "expect_business_status": 2226,
+      "expect_field": {
+        "status": 2226
+      }
+    },
+    {
       "name": "绑定禁用角色返回 2226",
       "actor": "admin",
       "depends_on": [
