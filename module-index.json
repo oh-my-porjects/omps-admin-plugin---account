@@ -88,16 +88,14 @@
   ],
   "hot_reload": {
     "enabled": true,
-    "safe": false,
+    "safe": true,
     "state_strategy": "externalized",
     "has_background_workers": true,
     "has_in_memory_state": false,
     "shutdown_requirements": [
       "后台 goroutine 必须监听 LifecycleCtx.Done() 并调用 RegisterWorker 协作退出"
     ],
-    "reload_risks": [
-      "存在 time.NewTicker/Tick/AfterFunc，reload 时必须停止以避免重复触发"
-    ]
+    "reload_risks": []
   },
   "background_tasks": {
     "has_workers": true,
