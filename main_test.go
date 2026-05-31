@@ -270,3 +270,169 @@ func TestAccountManageAndPermissionAcceptProjectAdminSessionToken(t *testing.T) 
 		t.Fatalf("check response status=%d data=%+v body=%s", checkResp.Status, checkResp.Data, checkRec.Body.String())
 	}
 }
+
+func TestHandleAccountDeleteSuccessRemovesAccountAndRoles(t *testing.T) {
+	now := time.Now().UTC()
+	p := &AdminAccountPlugin{
+		accounts: map[string]accountRecord{
+			rootAccountID: {
+				ID:           rootAccountID,
+				Username:     "root",
+				Status:       "enabled",
+				IsSuperAdmin: true,
+				CreatedAt:    now,
+				UpdatedAt:    now,
+			},
+			operatorAccountID: {
+				ID:        operatorAccountID,
+				Username:  "operator",
+				Status:    "enabled",
+				CreatedAt: now,
+				UpdatedAt: now,
+			},
+		},
+		roles: map[string][]string{
+			rootAccountID:     {rootRoleID},
+			operatorAccountID: {supportRoleID},
+		},
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/api/admin/account/delete", strings.NewReader(`{"operator_session_token":"","account_id":"`+operatorAccountID+`"}`))
+	req.Header.Set("X-Account-ID", rootAccountID)
+	rec := httptest.NewRecorder()
+	p.handleAccountDelete(rec, req)
+
+	var resp struct {
+		Status int `json:"status"`
+	}
+	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if resp.Status != 0 {
+		t.Fatalf("status=%d body=%s", resp.Status, rec.Body.String())
+	}
+	if _, ok := p.accounts[operatorAccountID]; ok {
+		t.Fatalf("target account still exists")
+	}
+	if roles, ok := p.roles[operatorAccountID]; ok || len(roles) > 0 {
+		t.Fatalf("target roles still exist: %v", roles)
+	}
+}
+
+func TestHandleAccountDeleteRejectsSelf(t *testing.T) {
+	now := time.Now().UTC()
+	p := &AdminAccountPlugin{
+		accounts: map[string]accountRecord{
+			rootAccountID: {
+				ID:           rootAccountID,
+				Username:     "root",
+				Status:       "enabled",
+				IsSuperAdmin: true,
+				CreatedAt:    now,
+				UpdatedAt:    now,
+			},
+		},
+		roles: map[string][]string{rootAccountID: {rootRoleID}},
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/api/admin/account/delete", strings.NewReader(`{"operator_session_token":"","account_id":"`+rootAccountID+`"}`))
+	req.Header.Set("X-Account-ID", rootAccountID)
+	rec := httptest.NewRecorder()
+	p.handleAccountDelete(rec, req)
+
+	var resp struct {
+		Status int `json:"status"`
+	}
+	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if resp.Status != 2295 {
+		t.Fatalf("status=%d body=%s", resp.Status, rec.Body.String())
+	}
+}
+
+func TestHandleAccountDeleteRejectsNormalOperatorDeletingSuperAdmin(t *testing.T) {
+	now := time.Now().UTC()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/role/detail":
+			writeTestJSON(t, w, 0, map[string]any{"role_id": supportRoleID, "status": "enabled"})
+		case "/api/role/check-permission":
+			writeTestJSON(t, w, 0, map[string]any{"allowed": true, "role_status": "enabled"})
+		default:
+			t.Fatalf("unexpected role API path: %s", r.URL.Path)
+		}
+	}))
+	defer server.Close()
+	p := &AdminAccountPlugin{
+		runtimeAddr: server.URL,
+		accounts: map[string]accountRecord{
+			rootAccountID: {
+				ID:           rootAccountID,
+				Username:     "root",
+				Status:       "enabled",
+				IsSuperAdmin: true,
+				CreatedAt:    now,
+				UpdatedAt:    now,
+			},
+			operatorAccountID: {
+				ID:        operatorAccountID,
+				Username:  "operator",
+				Status:    "enabled",
+				CreatedAt: now,
+				UpdatedAt: now,
+			},
+		},
+		roles: map[string][]string{
+			rootAccountID:     {rootRoleID},
+			operatorAccountID: {supportRoleID},
+		},
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/api/admin/account/delete", strings.NewReader(`{"operator_session_token":"","account_id":"`+rootAccountID+`"}`))
+	req.Header.Set("X-Account-ID", operatorAccountID)
+	rec := httptest.NewRecorder()
+	p.handleAccountDelete(rec, req)
+
+	var resp struct {
+		Status int `json:"status"`
+	}
+	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if resp.Status != 2296 {
+		t.Fatalf("status=%d body=%s", resp.Status, rec.Body.String())
+	}
+}
+
+func TestHandleAccountDeleteMissingAccount(t *testing.T) {
+	now := time.Now().UTC()
+	p := &AdminAccountPlugin{
+		accounts: map[string]accountRecord{
+			rootAccountID: {
+				ID:           rootAccountID,
+				Username:     "root",
+				Status:       "enabled",
+				IsSuperAdmin: true,
+				CreatedAt:    now,
+				UpdatedAt:    now,
+			},
+		},
+		roles: map[string][]string{rootAccountID: {rootRoleID}},
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/api/admin/account/delete", strings.NewReader(`{"operator_session_token":"","account_id":"10000000-0000-0000-0000-000000009999"}`))
+	req.Header.Set("X-Account-ID", rootAccountID)
+	rec := httptest.NewRecorder()
+	p.handleAccountDelete(rec, req)
+
+	var resp struct {
+		Status int `json:"status"`
+	}
+	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if resp.Status != 2294 {
+		t.Fatalf("status=%d body=%s", resp.Status, rec.Body.String())
+	}
+}

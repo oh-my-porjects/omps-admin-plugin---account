@@ -16,6 +16,7 @@ tables:
       - {id: "10000000-0000-0000-0000-000000000002", account: "${range_tag}operator", password_hash: "448296e3138d4843057574ba9fbd21829f1f6d40891ce89664608ce55005a7ef", status: "enabled", is_super_admin: false, is_temporary: false, expires_at: null, created_at: "2026-05-20T00:00:00Z", updated_at: "2026-05-20T00:00:00Z"}
       - {id: "10000000-0000-0000-0000-000000000003", account: "${range_tag}disabled_admin", password_hash: "07f5e3ff8cc5a206371263aa73e6aa01244a00408fbcd526c4033a7bd2ccb88e", status: "disabled", is_super_admin: true, is_temporary: false, expires_at: null, created_at: "2026-05-20T00:00:00Z", updated_at: "2026-05-20T00:00:00Z"}
       - {id: "10000000-0000-0000-0000-000000000004", account: "${range_tag}role_state_operator", password_hash: "448296e3138d4843057574ba9fbd21829f1f6d40891ce89664608ce55005a7ef", status: "enabled", is_super_admin: false, is_temporary: false, expires_at: null, created_at: "2026-05-20T00:00:00Z", updated_at: "2026-05-20T00:00:00Z"}
+      - {id: "10000000-0000-0000-0000-000000000005", account: "${range_tag}delete_target", password_hash: "448296e3138d4843057574ba9fbd21829f1f6d40891ce89664608ce55005a7ef", status: "enabled", is_super_admin: false, is_temporary: false, expires_at: null, created_at: "2026-05-20T00:00:00Z", updated_at: "2026-05-20T00:00:00Z"}
 
   account_role_bindings:
     primary_key: id
@@ -26,3 +27,4 @@ tables:
       - {id: "10000000-0000-0000-0001-000000000000", account_id: "10000000-0000-0000-0000-000000000002", role_id: "00000000-0000-0000-0000-000000000003", created_at: "2026-05-20T00:00:00Z"}
       - {id: "10000000-0000-0000-0001-000000000001", account_id: "10000000-0000-0000-0000-000000000004", role_id: "00000000-0000-0000-0000-000000000005", created_at: "2026-05-20T00:00:00Z"}
       - {id: "10000000-0000-0000-0001-000000000002", account_id: "10000000-0000-0000-0000-000000000004", role_id: "99999999-9999-4999-8999-999999999999", created_at: "2026-05-20T00:00:00Z"}
+      - {id: "10000000-0000-0000-0001-000000000003", account_id: "10000000-0000-0000-0000-000000000005", role_id: "00000000-0000-0000-0000-000000000003", created_at: "2026-05-20T00:00:00Z"}

@@ -279,6 +279,40 @@
     },
     {
       "method": "POST",
+      "path": "/api/admin/account/delete",
+      "endpoint_key": "POST /api/admin/account/delete",
+      "title": "删除账号",
+      "description": "管理后台调用的账号删除接口。Runtime 统一校验 X-API-Key 后，接口按操作者会话校验账号管理权限，并在同一业务操作中删除账号和账号角色绑定。",
+      "auth": "api_key",
+      "params": [
+        {"name": "operator_session_token", "type": "string", "required": true, "constraint": "必须属于启用后台账号，且操作者为超级管理员或拥有 admin_account.manage 权限", "description": "发起删除操作的后台账号登录会话令牌，用于识别当前操作者、校验账号管理权限，并判断是否正在删除自己"},
+        {"name": "account_id", "type": "string", "required": true, "constraint": "允许 UUID 或 8-64 位字母、数字、下划线、短横线，且必须对应已存在的后台账号", "description": "被删除的后台账号唯一标识；删除成功后该账号不可再登录，也不再出现在账号列表和详情查询中"}
+      ],
+      "request_example": {"operator_session_token": "4f6e8b2a9c1d0e3f4a5b6c7d8e9f0011", "account_id": "00000000-0000-0000-0000-000000000002"},
+      "response": {
+        "description": "删除成功时 data 为空，调用方根据 status=0 判断操作完成，并刷新账号列表。",
+        "data_type": "null",
+        "fields": [],
+        "error_codes": [
+          {"status": 2291, "msg": "请求体解析失败或操作者未登录"},
+          {"status": 2292, "msg": "无账号管理权限"},
+          {"status": 2293, "msg": "account_id 参数非法"},
+          {"status": 2294, "msg": "账号不存在"},
+          {"status": 2295, "msg": "当前账号不能删除自己"},
+          {"status": 2296, "msg": "普通后台账号不能删除超级管理员账号"},
+          {"status": 2297, "msg": "删除账号失败或账号管理权限校验失败"},
+          {"status": 401, "msg": "管理后台 API Key 鉴权失败时由 Runtime 返回"}
+        ]
+      },
+      "response_example": {"status": 0, "data": null, "msg": "ok"},
+      "rules": [
+        {"category": "security", "title": "删除账号需要账号管理权限", "body": "删除账号要求操作者为超级管理员，或其角色命中 admin_account.manage 权限点。", "code_loc": "account_handlers.go:317-325"},
+        {"category": "constraint", "title": "当前账号不能删除自己", "body": "操作者账号 ID 与目标账号 ID 相同时返回 2295，不执行删除。", "code_loc": "account_handlers.go:341-344"},
+        {"category": "business", "title": "删除同步清理角色绑定", "body": "删除账号时先清理 account_role_bindings，再删除 account_accounts，并在同一事务提交。", "code_loc": "account_storage.go:393-421"}
+      ]
+    },
+    {
+      "method": "POST",
       "path": "/api/account/check-permission",
       "endpoint_key": "POST /api/account/check-permission",
       "title": "检查后台权限",

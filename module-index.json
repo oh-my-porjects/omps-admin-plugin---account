@@ -69,6 +69,11 @@
   "admin_apis": [
     {
       "method": "POST",
+      "path": "/api/admin/account/delete",
+      "title": "删除账号"
+    },
+    {
+      "method": "POST",
       "path": "/api/account/admin/ping",
       "title": "后台账号管理接口连通性检查"
     }

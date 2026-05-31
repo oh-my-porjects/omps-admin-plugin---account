@@ -127,6 +127,7 @@ var Routes = map[string]http.HandlerFunc{
 	"GET /api/account/detail":              handleAccountDetail,
 	"PUT /api/account/update":              handleAccountUpdate,
 	"PUT /api/account/reset-password":      handleResetPassword,
+	"POST /api/admin/account/delete":       handleAccountDelete,
 	"POST /api/account/check-permission":   handleCheckPermission,
 	// 临时超管账号机制（task/inner_plugin.md §4.4 + §6）
 	// admin-server 调（X-Internal-Token 鉴权），外部访问 401
@@ -184,6 +185,10 @@ func handleAccountUpdate(w http.ResponseWriter, r *http.Request) {
 
 func handleResetPassword(w http.ResponseWriter, r *http.Request) {
 	Plugin.handleResetPassword(w, r)
+}
+
+func handleAccountDelete(w http.ResponseWriter, r *http.Request) {
+	Plugin.handleAccountDelete(w, r)
 }
 
 func handleCheckPermission(w http.ResponseWriter, r *http.Request) {
