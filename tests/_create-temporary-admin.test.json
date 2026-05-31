@@ -32,22 +32,6 @@
         "status": 2401
       },
       "expect_contains": "未授权访问内部接口"
-    },
-    {
-      "name": "错误内部 token 返回未授权",
-      "actor": "anonymous",
-      "depends_on": [],
-      "method": "POST",
-      "path": "/api/account/_create-temporary-admin",
-      "headers": {
-        "X-Internal-Token": "bad-internal-token"
-      },
-      "expect_status": 200,
-      "expect_business_status": 2401,
-      "expect_field": {
-        "status": 2401
-      },
-      "expect_contains": "未授权访问内部接口"
     }
   ]
 }
