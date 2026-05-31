@@ -13,6 +13,14 @@
         "status": 0,
         "msg": "pong"
       }
+    },
+    {
+      "name": "admin ping 不支持 GET 方法",
+      "actor": "admin",
+      "depends_on": [],
+      "method": "GET",
+      "path": "/api/account/admin/ping",
+      "expect_status": 405
     }
   ]
 }
