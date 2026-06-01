@@ -1353,7 +1353,7 @@
       "path": "/api/account/admin/ping",
       "title": "后台账号管理接口探活",
       "description": "用于后台管理页检查账号模块管理接口是否可达。",
-      "auth": "public",
+      "auth": "api_key",
       "params": [],
       "response": {
         "data_type": "null",
@@ -1586,11 +1586,12 @@
     "allows_new_work_while_unloading": false
   },
   "related_requirements": [
+    78,
     77,
     14,
     12
   ],
-  "last_generated_at": "2026-05-31T14:22:28Z",
+  "last_generated_at": "2026-06-01T06:07:04Z",
   "warnings": [
     "已合并 API 接口表中的 3 条接口",
     "缺少 schema.json，表 ownership 未能确定"
