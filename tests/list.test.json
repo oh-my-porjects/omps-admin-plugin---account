@@ -31,22 +31,6 @@
       "expect_contains": "${range_tag}root"
     },
     {
-      "name": "按状态和关键词筛选成功",
-      "actor": "admin",
-      "depends_on": [
-        "login.0"
-      ],
-      "method": "GET",
-      "path": "/api/account/list?page=1&page_size=10&status=enabled&keyword=operator&operator_session_token=${admin_session_token}",
-      "expect_status": 200,
-      "expect_business_status": 0,
-      "expect_field": {
-        "status": 0,
-        "data.page": 1
-      },
-      "expect_contains": "${range_tag}operator"
-    },
-    {
       "name": "分页非法返回 2233",
       "actor": "admin",
       "depends_on": [

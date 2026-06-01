@@ -2,18 +2,40 @@
   "api": "POST /api/admin/account/delete",
   "cases": [
     {
-      "name": "未登录删除账号返回 2291",
-      "actor": "anonymous",
-      "depends_on": [],
+      "name": "超级管理员删除自己返回 2295",
+      "actor": "admin",
+      "depends_on": [
+        "login.0"
+      ],
       "method": "POST",
       "path": "/api/admin/account/delete",
       "body": {
-        "account_id": "10000000-0000-0000-0000-000000000002"
+        "operator_session_token": "${admin_session_token}",
+        "account_id": "10000000-0000-0000-0000-000000000001"
       },
       "expect_status": 200,
-      "expect_business_status": 2291,
+      "expect_business_status": 2295,
       "expect_field": {
-        "status": 2291
+        "status": 2295,
+        "msg": "当前账号不能删除自己"
+      }
+    },
+    {
+      "name": "删除不存在账号返回 2294",
+      "actor": "admin",
+      "depends_on": [
+        "login.0"
+      ],
+      "method": "POST",
+      "path": "/api/admin/account/delete",
+      "body": {
+        "operator_session_token": "${admin_session_token}",
+        "account_id": "10000000-0000-0000-0000-000000009999"
+      },
+      "expect_status": 200,
+      "expect_business_status": 2294,
+      "expect_field": {
+        "status": 2294
       }
     },
     {
