@@ -1,4 +1,4 @@
-# 账号管理 (account)
+# 账号公共模块 (account)
 
 ## 功能
 提供后台账号登录、会话、账号管理、角色权限联动校验和临时超级管理员恢复能力。
@@ -19,7 +19,7 @@
 | POST | /api/account/check-permission | 检查会话是否拥有指定权限码 | public |
 | POST | /api/account/_create-temporary-admin | 生成临时超级管理员账号 | api_key |
 | GET | /api/account/hello | 返回模块名称和版本 | public |
-| POST | /api/account/admin/ping | 管理后台探活 | public |
+| POST | /api/account/admin/ping | 管理后台探活 | api_key |
 | POST | /_internal/method-call/admin_account | Runtime 内部方法调用入口 | api_key |
 | POST | /_internal/scheduled-trigger/admin_account | Runtime 内部手动触发定时任务 | api_key |
 | POST | /_internal/selftest/admin_account | Runtime 内部自测入口 | api_key |
@@ -31,16 +31,16 @@
 
 ## 设计说明
 
-- 登录会话写入 Redis 而不是数据库，便于按 TTL 自动过期；Redis 不可用时登录会失败。
-- 账号管理接口通过 `operator_session_token` 或管理端注入的后台会话识别操作者，并要求超级管理员或 `admin_account.manage` 权限。
-- 角色有效性和权限码依赖 role 模块实时查询；角色缺失、禁用或删除会阻止登录、绑定或授权通过。
+- 登录会话写入 Redis 并依赖 TTL 自动过期；Redis 未配置或不可用时登录失败，避免产生无法校验的会话。
+- 账号管理接口使用 `operator_session_token` 或管理端请求头识别操作者，并要求超级管理员或 `admin_account.manage` 权限。
+- 角色状态和权限码不在本模块冗余存储，而是实时调用 `role` 模块；角色缺失、禁用或删除会阻止登录、绑定或授权通过。
 - 临时超级管理员复用固定种子账号，重复生成只覆盖同一行，10 分钟后后台 worker 自动禁用。
 - 当前实现对外仍返回 `enabled/disabled` 状态文本和 RFC3339 时间字符串，尚未迁移为数字状态和 Unix 时间戳。
 
 ## 环境变量
 
 - `ACCOUNT_SESSION_TTL_SECONDS` — 后台账号登录会话有效期秒数，默认值 `28800`
-- `ADMIN_API_KEY` — 调用 role 管理接口和内部临时超管接口的管理密钥，平台注入
+- `ADMIN_API_KEY` — 调用 role 管理接口和临时超管内部接口的管理密钥，平台注入
 - `RUNTIME_ADDR` — Runtime HTTP 地址，未配置时按请求 Host 或 `127.0.0.1:8080` 兜底
 - `REDIS_HOST_LAN` / `REDIS_HOST_WG` / `REDIS_PORT` / `REDIS_PASSWORD` / `REDIS_DB` — Redis 会话存储连接配置，端口默认 `6379`，DB 默认 `0`
 

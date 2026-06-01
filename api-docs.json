@@ -1,6 +1,6 @@
 {
   "module": "account",
-  "module_title": "账号管理",
+  "module_title": "账号公共模块",
   "apis": [
     {
       "method": "POST",
@@ -425,7 +425,7 @@
       "endpoint_key": "POST /api/account/admin/ping",
       "title": "后台账号管理接口探活",
       "description": "用于后台管理页检查账号模块管理接口是否可达。",
-      "auth": "public",
+      "auth": "api_key",
       "params": [],
       "request_example": {},
       "response": {
