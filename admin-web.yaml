@@ -97,6 +97,8 @@ views:
         type: row
         title: 修改账号
         api: PUT /api/account/update
+        permission_key: account.account_list.action.update_account
+        default_effect: disabled
         danger: true
         confirm: 修改账号状态或角色绑定会立即影响该账号登录和权限，请确认
         fields:
@@ -121,6 +123,8 @@ views:
         type: row
         title: 删除账号
         api: POST /api/admin/account/delete
+        permission_key: account.account_list.action.delete_account
+        default_effect: disabled
         danger: true
         confirm: 删除账号会同时清理账号角色绑定，操作不可恢复，请确认
         disabled_when: account_id == $current_account_id
