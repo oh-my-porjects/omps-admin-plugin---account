@@ -24,7 +24,6 @@ views:
         title: 账号名
       - field: role_ids
         title: 角色
-        render: json
       - field: status
         title: 状态
         render: enum
@@ -143,7 +142,6 @@ views:
         title: 账号名
       - field: role_ids
         title: 角色
-        render: json
 
 roles:
   - code: admin
