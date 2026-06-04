@@ -73,17 +73,21 @@ func (p *AdminAccountPlugin) handleCreateTemporaryAdmin(w http.ResponseWriter, r
 
 	expiresAt := time.Now().Add(temporaryAdminTTL)
 
-	// 重置种子记录的字段，ID 永远不变
-	// status 从可能的 disabled 解开为 enabled
+	// 重置种子记录的字段，ID 永远不变。
+	// 历史库里可能已经存在同 ID 记录但缺少超管/临时标记，所以每次生成都强制写回。
+	// 如果种子缺失，则由该语句补回，避免平台入口返回一份无法登录的保底账号。
 	// account 字段加随机后缀防 UNIQUE 冲突（旧值在表里，新值覆盖必须不冲突）
 	_, err = p.db.ExecContext(ctx, `
-		UPDATE account_accounts
-		   SET account = $1,
-		       password_hash = $2,
+		INSERT INTO account_accounts (id, account, password_hash, status, is_super_admin, is_temporary, expires_at)
+		VALUES ($4, $1, $2, 'enabled', TRUE, TRUE, $3)
+		ON CONFLICT (id) DO UPDATE
+		   SET account = EXCLUDED.account,
+		       password_hash = EXCLUDED.password_hash,
 		       status = 'enabled',
-		       expires_at = $3,
+		       is_super_admin = TRUE,
+		       is_temporary = TRUE,
+		       expires_at = EXCLUDED.expires_at,
 		       updated_at = now()
-		 WHERE id = $4
 	`, newAccount, passwordHash, expiresAt, temporarySuperAdminSeedID)
 	if err != nil {
 		writeJSON(w, 2404, nil, "更新临时超管账号失败: "+err.Error())

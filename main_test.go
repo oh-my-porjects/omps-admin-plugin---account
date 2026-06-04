@@ -9,7 +9,50 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/DATA-DOG/go-sqlmock"
 )
+
+func TestCreateTemporaryAdminRepairsSeedFlags(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer db.Close()
+
+	t.Setenv("ADMIN_API_KEY", "test-internal-token")
+	mock.ExpectExec(`(?s)INSERT INTO account_accounts .*is_super_admin.*is_temporary.*ON CONFLICT.*is_super_admin = TRUE.*is_temporary = TRUE`).
+		WithArgs(sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), temporarySuperAdminSeedID).
+		WillReturnResult(sqlmock.NewResult(0, 1))
+
+	p := &AdminAccountPlugin{db: db}
+	req := httptest.NewRequest(http.MethodPost, "/api/account/_create-temporary-admin", nil)
+	req.Header.Set("X-Internal-Token", "test-internal-token")
+	rec := httptest.NewRecorder()
+
+	p.handleCreateTemporaryAdmin(rec, req)
+
+	var resp struct {
+		Status int `json:"status"`
+		Data   struct {
+			Account   string `json:"account"`
+			Password  string `json:"password"`
+			ExpiresAt string `json:"expires_at"`
+		} `json:"data"`
+	}
+	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if resp.Status != 0 {
+		t.Fatalf("status=%d body=%s", resp.Status, rec.Body.String())
+	}
+	if resp.Data.Account == "" || resp.Data.Password == "" || resp.Data.ExpiresAt == "" {
+		t.Fatalf("temporary admin response incomplete: %+v", resp.Data)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("sql expectations: %v", err)
+	}
+}
 
 func TestPluginName(t *testing.T) {
 	name := Plugin.Name()
