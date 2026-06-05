@@ -1894,7 +1894,7 @@
     14,
     12
   ],
-  "last_generated_at": "2026-06-05T10:48:54Z",
+  "last_generated_at": "2026-06-05T10:52:34Z",
   "warnings": [
     "已合并 API 接口表中的 4 条接口",
     "缺少 schema.json，表 ownership 未能确定"
