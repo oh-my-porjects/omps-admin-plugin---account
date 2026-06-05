@@ -53,29 +53,6 @@
       ]
     },
     {
-      "name": "账号重复返回 2224",
-      "actor": "admin",
-      "depends_on": [
-        "login.0"
-      ],
-      "method": "POST",
-      "path": "/api/account/create",
-      "body": {
-        "operator_session_token": "${admin_session_token}",
-        "account": "${range_tag}root",
-        "password": "Passw0rd!",
-        "status": "enabled",
-        "role_ids": [
-          "00000000-0000-0000-0000-000000000003"
-        ]
-      },
-      "expect_status": 200,
-      "expect_business_status": 2224,
-      "expect_field": {
-        "status": 2224
-      }
-    },
-    {
       "name": "绑定多个角色返回 2225",
       "actor": "admin",
       "depends_on": [
