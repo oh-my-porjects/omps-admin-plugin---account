@@ -1278,6 +1278,157 @@
         "msg": "",
         "status": 0
       }
+    },
+    {
+      "method": "POST",
+      "path": "/_internal/selftest/admin_account",
+      "title": "内部自测入口",
+      "description": "供 runtime 内部触发模块内嵌 tests 目录中的 HTTP 自测用例。",
+      "auth": "api_key",
+      "params": [],
+      "response": {
+        "data_type": "object",
+        "description": "返回自测总数、通过数、失败数和逐用例执行结果。",
+        "error_codes": [
+          {
+            "msg": "X-Internal-Token 缺失或不匹配时 HTTP 401 unauthorized",
+            "status": 401
+          },
+          {
+            "msg": "自测入口 panic 时返回业务状态 1",
+            "status": 1
+          }
+        ],
+        "fields": [
+          {
+            "description": "本次执行的自测用例总数，包含通过和失败用例。",
+            "name": "total",
+            "type": "integer"
+          },
+          {
+            "description": "本次执行通过的自测用例数量。",
+            "name": "passed",
+            "type": "integer"
+          },
+          {
+            "description": "本次执行失败的自测用例数量。",
+            "name": "failed",
+            "type": "integer"
+          },
+          {
+            "description": "逐条自测用例的执行结果；不同 kind 或失败阶段会带有不同动态字段。",
+            "fields": [
+              {
+                "description": "用例所在的 tests 文件名，用于定位测试资产。",
+                "name": "file",
+                "type": "string"
+              },
+              {
+                "description": "用例在文件中的序号，从 0 开始。",
+                "name": "index",
+                "type": "integer"
+              },
+              {
+                "description": "测试用例名称，用于后台测试页展示。",
+                "name": "name",
+                "type": "string"
+              },
+              {
+                "description": "测试文件声明覆盖的 API 锚点。",
+                "name": "api",
+                "type": "string"
+              },
+              {
+                "description": "实际执行请求的 HTTP 方法；跳过类用例可能不返回该字段。",
+                "name": "method",
+                "type": "string"
+              },
+              {
+                "description": "替换模板变量后的实际请求路径；跳过类用例可能不返回该字段。",
+                "name": "path",
+                "type": "string"
+              },
+              {
+                "description": "替换模板变量后的请求体字符串，用于排查失败用例。",
+                "name": "request_body",
+                "type": "string"
+              },
+              {
+                "description": "handler 执行耗时毫秒数，用于观察自测性能。",
+                "name": "elapsed_ms",
+                "type": "integer"
+              },
+              {
+                "description": "handler 返回的 HTTP 状态码。",
+                "name": "http_code",
+                "type": "integer"
+              },
+              {
+                "description": "handler 返回体，超过 4096 字符会被截断。",
+                "name": "response_body",
+                "type": "string"
+              },
+              {
+                "description": "该用例是否通过断言。",
+                "name": "passed",
+                "type": "boolean"
+              },
+              {
+                "description": "用例类型；现有实现遇到 websocket、sse、file_upload 会跳过并标记通过。",
+                "name": "kind",
+                "type": "string"
+              },
+              {
+                "description": "跳过非 HTTP 用例时的原因说明。",
+                "name": "skipped_reason",
+                "type": "string"
+              },
+              {
+                "description": "路由缺失、读取失败或 panic 等错误说明。",
+                "name": "error",
+                "type": "string"
+              },
+              {
+                "description": "HTTP 状态、响应内容或字段断言不匹配时的失败原因。",
+                "name": "fail_reason",
+                "type": "string"
+              }
+            ],
+            "name": "results",
+            "type": "array"
+          },
+          {
+            "description": "读取 tests 目录失败时返回的整体错误说明；正常执行时不返回该字段。",
+            "name": "error",
+            "type": "string"
+          }
+        ]
+      },
+      "request_example": {},
+      "response_example": {
+        "data": {
+          "failed": 0,
+          "passed": 1,
+          "results": [
+            {
+              "api": "GET /api/account/hello",
+              "elapsed_ms": 1,
+              "file": "hello.test.json",
+              "http_code": 200,
+              "index": 0,
+              "method": "GET",
+              "name": "hello 返回模块元信息",
+              "passed": true,
+              "path": "/api/account/hello",
+              "request_body": "",
+              "response_body": "{\"status\":0,\"data\":{\"module\":\"account\",\"version\":\"dev\"},\"msg\":\"ok\"}\n"
+            }
+          ],
+          "total": 1
+        },
+        "msg": "",
+        "status": 0
+      }
     }
   ],
   "admin_apis": [
@@ -1485,6 +1636,157 @@
     },
     {
       "method": "POST",
+      "path": "/_internal/selftest/admin_account",
+      "title": "内部自测入口",
+      "description": "供 runtime 内部触发模块内嵌 tests 目录中的 HTTP 自测用例。",
+      "auth": "api_key",
+      "params": [],
+      "response": {
+        "data_type": "object",
+        "description": "返回自测总数、通过数、失败数和逐用例执行结果。",
+        "error_codes": [
+          {
+            "msg": "X-Internal-Token 缺失或不匹配时 HTTP 401 unauthorized",
+            "status": 401
+          },
+          {
+            "msg": "自测入口 panic 时返回业务状态 1",
+            "status": 1
+          }
+        ],
+        "fields": [
+          {
+            "description": "本次执行的自测用例总数，包含通过和失败用例。",
+            "name": "total",
+            "type": "integer"
+          },
+          {
+            "description": "本次执行通过的自测用例数量。",
+            "name": "passed",
+            "type": "integer"
+          },
+          {
+            "description": "本次执行失败的自测用例数量。",
+            "name": "failed",
+            "type": "integer"
+          },
+          {
+            "description": "逐条自测用例的执行结果；不同 kind 或失败阶段会带有不同动态字段。",
+            "fields": [
+              {
+                "description": "用例所在的 tests 文件名，用于定位测试资产。",
+                "name": "file",
+                "type": "string"
+              },
+              {
+                "description": "用例在文件中的序号，从 0 开始。",
+                "name": "index",
+                "type": "integer"
+              },
+              {
+                "description": "测试用例名称，用于后台测试页展示。",
+                "name": "name",
+                "type": "string"
+              },
+              {
+                "description": "测试文件声明覆盖的 API 锚点。",
+                "name": "api",
+                "type": "string"
+              },
+              {
+                "description": "实际执行请求的 HTTP 方法；跳过类用例可能不返回该字段。",
+                "name": "method",
+                "type": "string"
+              },
+              {
+                "description": "替换模板变量后的实际请求路径；跳过类用例可能不返回该字段。",
+                "name": "path",
+                "type": "string"
+              },
+              {
+                "description": "替换模板变量后的请求体字符串，用于排查失败用例。",
+                "name": "request_body",
+                "type": "string"
+              },
+              {
+                "description": "handler 执行耗时毫秒数，用于观察自测性能。",
+                "name": "elapsed_ms",
+                "type": "integer"
+              },
+              {
+                "description": "handler 返回的 HTTP 状态码。",
+                "name": "http_code",
+                "type": "integer"
+              },
+              {
+                "description": "handler 返回体，超过 4096 字符会被截断。",
+                "name": "response_body",
+                "type": "string"
+              },
+              {
+                "description": "该用例是否通过断言。",
+                "name": "passed",
+                "type": "boolean"
+              },
+              {
+                "description": "用例类型；现有实现遇到 websocket、sse、file_upload 会跳过并标记通过。",
+                "name": "kind",
+                "type": "string"
+              },
+              {
+                "description": "跳过非 HTTP 用例时的原因说明。",
+                "name": "skipped_reason",
+                "type": "string"
+              },
+              {
+                "description": "路由缺失、读取失败或 panic 等错误说明。",
+                "name": "error",
+                "type": "string"
+              },
+              {
+                "description": "HTTP 状态、响应内容或字段断言不匹配时的失败原因。",
+                "name": "fail_reason",
+                "type": "string"
+              }
+            ],
+            "name": "results",
+            "type": "array"
+          },
+          {
+            "description": "读取 tests 目录失败时返回的整体错误说明；正常执行时不返回该字段。",
+            "name": "error",
+            "type": "string"
+          }
+        ]
+      },
+      "request_example": {},
+      "response_example": {
+        "data": {
+          "failed": 0,
+          "passed": 1,
+          "results": [
+            {
+              "api": "GET /api/account/hello",
+              "elapsed_ms": 1,
+              "file": "hello.test.json",
+              "http_code": 200,
+              "index": 0,
+              "method": "GET",
+              "name": "hello 返回模块元信息",
+              "passed": true,
+              "path": "/api/account/hello",
+              "request_body": "",
+              "response_body": "{\"status\":0,\"data\":{\"module\":\"account\",\"version\":\"dev\"},\"msg\":\"ok\"}\n"
+            }
+          ],
+          "total": 1
+        },
+        "msg": "",
+        "status": 0
+      }
+    },
+    {
+      "method": "POST",
       "path": "/api/account/_create-temporary-admin",
       "title": "创建临时超级管理员账号",
       "description": "供 admin-server 内部生成 10 分钟有效的临时超级管理员账号。",
@@ -1586,14 +1888,15 @@
     "allows_new_work_while_unloading": false
   },
   "related_requirements": [
+    79,
     78,
     77,
     14,
     12
   ],
-  "last_generated_at": "2026-06-01T06:07:04Z",
+  "last_generated_at": "2026-06-05T10:05:06Z",
   "warnings": [
-    "已合并 API 接口表中的 3 条接口",
+    "已合并 API 接口表中的 4 条接口",
     "缺少 schema.json，表 ownership 未能确定"
   ]
 }
