@@ -14,6 +14,7 @@ type sessionAccountState int
 const (
 	sessionMissing sessionAccountState = iota
 	sessionAccountMissing
+	sessionAccountInvalidRole
 	sessionAccountOK
 )
 

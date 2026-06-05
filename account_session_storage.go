@@ -57,7 +57,7 @@ func (p *AdminAccountPlugin) getAccountBySessionState(ctx context.Context, token
 	acc, roles, ok, err := p.getAccountByID(ctx, accountID)
 	if err != nil {
 		if errors.Is(err, errNoValidAccountRole) {
-			return acc, roles, sessionAccountOK, nil
+			return acc, roles, sessionAccountInvalidRole, nil
 		}
 		return accountRecord{}, nil, sessionMissing, err
 	}
@@ -101,7 +101,7 @@ func (p *AdminAccountPlugin) getAccountByProjectAdminSessionState(ctx context.Co
 	acc, roles, ok, err := p.getAccountByID(ctx, accountID)
 	if err != nil {
 		if errors.Is(err, errNoValidAccountRole) {
-			return acc, roles, sessionAccountOK, nil
+			return acc, roles, sessionAccountInvalidRole, nil
 		}
 		return accountRecord{}, nil, sessionMissing, err
 	}

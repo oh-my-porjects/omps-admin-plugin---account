@@ -1,13 +1,10 @@
 package main
 
 import (
-	"crypto/rand"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"net/http"
 	"regexp"
-	"strconv"
 	"strings"
 	"time"
 )
@@ -80,6 +77,10 @@ func (p *AdminAccountPlugin) handleMe(w http.ResponseWriter, r *http.Request) {
 	}
 	if state == sessionAccountMissing {
 		writeJSON(w, 2213, nil, "账号不存在")
+		return
+	}
+	if state == sessionAccountInvalidRole {
+		writeJSON(w, 2214, nil, "账号已禁用")
 		return
 	}
 	if acc.Status != "enabled" {
@@ -303,7 +304,7 @@ func (p *AdminAccountPlugin) handleCheckPermission(w http.ResponseWriter, r *htt
 		writeJSON(w, 2272, nil, "会话不存在或已过期")
 		return
 	}
-	if state == sessionAccountMissing || acc.Status != "enabled" {
+	if state == sessionAccountMissing || state == sessionAccountInvalidRole || acc.Status != "enabled" {
 		writeJSON(w, 2274, nil, "账号不存在或已禁用")
 		return
 	}
@@ -484,41 +485,4 @@ func (p *AdminAccountPlugin) accountPermissionResponse(r *http.Request, acc acco
 		"roles":            roles,
 		"permission_codes": permissions,
 	}, nil
-}
-
-func newToken() string {
-	return randHexString(32)
-}
-
-func newUUIDLikeID() string {
-	s := randHexString(32)
-	return s[0:8] + "-" + s[8:12] + "-" + s[12:16] + "-" + s[16:20] + "-" + s[20:32]
-}
-
-func newShortID() string {
-	const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
-	var b [12]byte
-	if _, err := rand.Read(b[:]); err != nil {
-		fallback := time.Now().UnixNano()
-		for i := range b {
-			b[i] = chars[fallback%62]
-			fallback /= 62
-			if fallback == 0 {
-				fallback = time.Now().UnixNano() + int64(i)
-			}
-		}
-		return string(b[:])
-	}
-	for i := range b {
-		b[i] = chars[int(b[i])%62]
-	}
-	return string(b[:])
-}
-
-func randHexString(n int) string {
-	buf := make([]byte, (n+1)/2)
-	if _, err := rand.Read(buf); err != nil {
-		return strconv.FormatInt(time.Now().UnixNano(), 16)
-	}
-	return hex.EncodeToString(buf)[:n]
 }
