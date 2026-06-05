@@ -1,11 +1,13 @@
 package main
 
 import (
+	"errors"
 	"net/http"
-	"sort"
 	"strconv"
 	"strings"
 )
+
+var errNoValidAccountRole = errors.New("account has no enabled role")
 
 type sessionAccountState int
 
@@ -30,29 +32,16 @@ func parsePage(r *http.Request) (int, int, bool) {
 }
 
 func (p *AdminAccountPlugin) cleanAndValidateRoles(w http.ResponseWriter, r *http.Request, in []string, formatCode, unavailableCode int) ([]string, bool) {
-	if in == nil {
+	if len(in) != 1 {
 		writeJSON(w, formatCode, nil, "角色参数非法")
 		return nil, false
 	}
-	seen := map[string]bool{}
-	out := make([]string, 0, len(in))
-	for _, roleID := range in {
-		roleID = strings.TrimSpace(roleID)
-		if roleID == "" {
-			writeJSON(w, formatCode, nil, "角色参数非法")
-			return nil, false
-		}
-		if seen[roleID] {
-			continue
-		}
-		if !validRecordID(roleID) {
-			writeJSON(w, formatCode, nil, "角色参数非法")
-			return nil, false
-		}
-		seen[roleID] = true
-		out = append(out, roleID)
+	roleID := strings.TrimSpace(in[0])
+	if roleID == "" || !validRecordID(roleID) {
+		writeJSON(w, formatCode, nil, "角色参数非法")
+		return nil, false
 	}
-	sort.Strings(out)
+	out := []string{roleID}
 	available, err := p.rolesAvailable(r, out)
 	if err != nil || !available {
 		writeJSON(w, unavailableCode, nil, "角色不存在或已停用")

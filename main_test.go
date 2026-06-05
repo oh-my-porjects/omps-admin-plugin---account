@@ -147,7 +147,14 @@ func TestRequireAccountManageTokenAcceptsProjectAdminShortID(t *testing.T) {
 }
 
 func TestValidatePasswordRouteSupportsRuntimeAdminLogin(t *testing.T) {
-	p := &AdminAccountPlugin{}
+	const roleID = "fS9Cmj6bzKBa"
+	p, reqTemplate, closeServer := newRoleBackedPlugin(t, func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/role/detail" {
+			t.Fatalf("unexpected path: %s", r.URL.Path)
+		}
+		writeTestJSON(t, w, 0, map[string]any{"role_id": roleID, "status": "enabled"})
+	})
+	defer closeServer()
 	hash, err := hashPassword("Admin@123")
 	if err != nil {
 		t.Fatalf("hash password: %v", err)
@@ -164,9 +171,10 @@ func TestValidatePasswordRouteSupportsRuntimeAdminLogin(t *testing.T) {
 			UpdatedAt:    time.Now().UTC(),
 		},
 	}
-	p.roles = map[string][]string{shortAccountID: {"fS9Cmj6bzKBa"}}
+	p.roles = map[string][]string{shortAccountID: {roleID}}
 
 	req := httptest.NewRequest(http.MethodPost, "/api/account/_validate-password", strings.NewReader(`{"account":"project-admin","password":"Admin@123"}`))
+	req.Host = reqTemplate.Host
 	rec := httptest.NewRecorder()
 	p.handleValidatePassword(rec, req)
 

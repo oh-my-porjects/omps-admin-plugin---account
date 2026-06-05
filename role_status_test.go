@@ -63,6 +63,82 @@ func TestNormalizeRoleStatusTreatsDeletedStatusAsDeleted(t *testing.T) {
 	}
 }
 
+func TestCleanAndValidateRolesRequiresExactlyOneRole(t *testing.T) {
+	p, req, closeServer := newRoleBackedPlugin(t, func(w http.ResponseWriter, r *http.Request) {
+		writeTestJSON(t, w, 0, map[string]any{"role_id": testRoleID, "status": "enabled"})
+	})
+	defer closeServer()
+
+	cases := []struct {
+		name  string
+		roles []string
+		want  int
+	}{
+		{name: "empty", roles: []string{}, want: 2225},
+		{name: "multiple", roles: []string{testRoleID, testSecondRoleID}, want: 2225},
+		{name: "duplicate", roles: []string{testRoleID, testRoleID}, want: 2225},
+		{name: "single", roles: []string{" " + testRoleID + " "}, want: 0},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			rec := httptest.NewRecorder()
+			roles, ok := p.cleanAndValidateRoles(rec, req, tc.roles, 2225, 2226)
+			if tc.want == 0 {
+				if !ok || len(roles) != 1 || roles[0] != testRoleID {
+					t.Fatalf("roles = %v ok = %v, want single role", roles, ok)
+				}
+				return
+			}
+			if ok {
+				t.Fatalf("ok = true, want false")
+			}
+			var resp struct {
+				Status int `json:"status"`
+			}
+			if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
+				t.Fatalf("decode response: %v", err)
+			}
+			if resp.Status != tc.want {
+				t.Fatalf("status = %d, want %d", resp.Status, tc.want)
+			}
+		})
+	}
+}
+
+func TestNormalizeAccountRolesKeepsFirstEnabledRole(t *testing.T) {
+	p, req, closeServer := newRoleBackedPlugin(t, func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/role/detail" {
+			t.Fatalf("unexpected path: %s", r.URL.Path)
+		}
+		roleID := r.URL.Query().Get("role_id")
+		switch roleID {
+		case testRoleID:
+			writeTestJSON(t, w, 0, map[string]any{"role_id": roleID, "status": "disabled"})
+		case testSecondRoleID:
+			writeTestJSON(t, w, 0, map[string]any{"role_id": roleID, "status": "enabled"})
+		default:
+			t.Fatalf("unexpected role_id: %s", roleID)
+		}
+	})
+	defer closeServer()
+	_ = req
+	p.seedAccount(t, "operator", "Operator@123", "enabled", false, []string{testRoleID, testSecondRoleID})
+
+	_, roles, ok, err := p.getAccountByID(req.Context(), testAccountID)
+	if err != nil {
+		t.Fatalf("getAccountByID returned error: %v", err)
+	}
+	if !ok {
+		t.Fatalf("account missing")
+	}
+	if len(roles) != 1 || roles[0] != testSecondRoleID {
+		t.Fatalf("roles = %v, want [%s]", roles, testSecondRoleID)
+	}
+	if stored := p.roles[testAccountID]; len(stored) != 1 || stored[0] != testSecondRoleID {
+		t.Fatalf("stored roles = %v, want [%s]", stored, testSecondRoleID)
+	}
+}
+
 func TestHandleLoginRejectsInvalidBoundRole(t *testing.T) {
 	p, reqTemplate, closeServer := newRoleBackedPlugin(t, func(w http.ResponseWriter, r *http.Request) {
 		writeTestJSON(t, w, 0, map[string]any{"role_id": testRoleID, "status": "deleted"})

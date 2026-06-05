@@ -120,7 +120,7 @@
         {"name": "account", "type": "string", "required": true, "constraint": "去除首尾空白后长度 4-32 个字符，账号名必须唯一。", "description": "新后台账号登录名，用于后续登录和后台检索。"},
         {"name": "password", "type": "string", "required": true, "constraint": "长度 6-32 个字符。", "description": "新后台账号初始密码，服务端仅保存哈希。"},
         {"name": "status", "type": "string", "required": true, "constraint": "现有实现暂为字符串枚举：enabled=创建后可登录，disabled=创建后不可登录。", "description": "新账号启停状态，决定创建后是否允许登录。"},
-        {"name": "role_ids", "type": "array", "required": true, "item_type": "string", "constraint": "必须传数组；每项为 UUID 或 8-64 位短 ID；重复项会去重排序；所有角色必须存在且为 enabled。", "description": "新账号绑定角色列表，用于决定账号可获得哪些后台权限。"}
+        {"name": "role_ids", "type": "array", "required": true, "item_type": "string", "constraint": "必须传数组且长度必须为 1；唯一元素为 UUID 或 8-64 位短 ID；该角色必须存在且为 enabled。", "description": "新账号绑定角色列表，用于决定账号可获得哪些后台权限。"}
       ],
       "request_example": {"operator_session_token": "4f6e8b2a9c1d0e3f4a5b6c7d8e9f0011", "account": "support_admin", "password": "Passw0rd", "status": "enabled", "role_ids": ["00000000-0000-0000-0000-000000000003"]},
       "response": {
@@ -130,7 +130,7 @@
           {"name": "account_id", "type": "string", "description": "新建后台账号唯一标识，用于后续更新、重置密码或删除。"},
           {"name": "account", "type": "string", "description": "新建后台账号登录名。"},
           {"name": "status", "type": "string", "description": "账号启停状态；现有实现暂为字符串格式，enabled=可登录，disabled=不可登录。"},
-          {"name": "role_ids", "type": "array", "item_type": "string", "description": "已写入的角色绑定 ID 列表，重复输入会被去重排序。"},
+          {"name": "role_ids", "type": "array", "item_type": "string", "description": "已写入的唯一角色绑定 ID 列表，成功时固定只有一个元素。"},
           {"name": "is_super_admin", "type": "boolean", "description": "是否超级管理员；普通创建接口创建的账号为 false。"},
           {"name": "created_at", "type": "string", "description": "账号创建时间；现有实现暂为 RFC3339 字符串格式。"},
           {"name": "updated_at", "type": "string", "description": "账号最近更新时间；现有实现暂为 RFC3339 字符串格式。"}
@@ -148,7 +148,7 @@
       "response_example": {"status": 0, "data": {"account_id": "A8kLm2Qz9P0r", "account": "support_admin", "status": "enabled", "role_ids": ["00000000-0000-0000-0000-000000000003"], "is_super_admin": false, "created_at": "2026-05-31T06:05:00Z", "updated_at": "2026-05-31T06:05:00Z"}, "msg": "ok"},
       "rules": [
         {"category": "security", "title": "账号管理操作需要专门权限", "body": "创建账号要求操作者为超级管理员，或其绑定角色命中 admin_account.manage 权限点。", "code_loc": "account_handlers.go:370-391"},
-        {"category": "constraint", "title": "角色绑定写入前实时校验", "body": "role_ids 会去空白、去重、排序，并逐个调用 role 模块确认角色存在且状态为 enabled。", "code_loc": "account_validation.go:25-56"}
+        {"category": "constraint", "title": "角色绑定写入前实时校验", "body": "role_ids 必须只包含一个去空白后的有效角色 ID，并调用 role 模块确认角色存在且状态为 enabled。", "code_loc": "account_validation.go:25-56"}
       ]
     },
     {
@@ -239,7 +239,7 @@
         {"name": "operator_session_token", "type": "string", "required": true, "constraint": "必须属于启用账号，且操作者是超级管理员或拥有 admin_account.manage 权限；为空时可由管理端请求头兜底。", "description": "操作者后台会话令牌，用于确认是否有权限修改账号。"},
         {"name": "account_id", "type": "string", "required": true, "constraint": "UUID 或 8-64 位短 ID。", "description": "要修改的后台账号唯一标识。"},
         {"name": "status", "type": "string", "required": true, "constraint": "现有实现暂为字符串枚举：enabled=允许登录，disabled=禁止登录。", "description": "目标账号的新启停状态。"},
-        {"name": "role_ids", "type": "array", "required": true, "item_type": "string", "constraint": "必须传数组；每项为 UUID 或 8-64 位短 ID；重复项会去重排序；所有角色必须存在且为 enabled。", "description": "覆盖后的角色绑定列表，用于重新定义账号权限来源。"}
+        {"name": "role_ids", "type": "array", "required": true, "item_type": "string", "constraint": "必须传数组且长度必须为 1；唯一元素为 UUID 或 8-64 位短 ID；该角色必须存在且为 enabled。", "description": "覆盖后的角色绑定列表，用于重新定义账号权限来源。"}
       ],
       "request_example": {"operator_session_token": "4f6e8b2a9c1d0e3f4a5b6c7d8e9f0011", "account_id": "00000000-0000-0000-0000-000000000002", "status": "enabled", "role_ids": ["00000000-0000-0000-0000-000000000003"]},
       "response": {
@@ -249,7 +249,7 @@
           {"name": "account_id", "type": "string", "description": "已更新后台账号唯一标识。"},
           {"name": "account", "type": "string", "description": "已更新后台账号登录名。"},
           {"name": "status", "type": "string", "description": "更新后的账号启停状态；现有实现暂为字符串格式。"},
-          {"name": "role_ids", "type": "array", "item_type": "string", "description": "更新后实际保存的角色绑定 ID 列表。"},
+          {"name": "role_ids", "type": "array", "item_type": "string", "description": "更新后实际保存的唯一角色绑定 ID 列表，成功时固定只有一个元素。"},
           {"name": "is_super_admin", "type": "boolean", "description": "是否超级管理员；普通管理员不能修改超级管理员账号。"},
           {"name": "created_at", "type": "string", "description": "账号创建时间；现有实现暂为 RFC3339 字符串格式。"},
           {"name": "updated_at", "type": "string", "description": "账号最近更新时间；现有实现暂为 RFC3339 字符串格式。"}
@@ -351,7 +351,7 @@
         "fields": [
           {"name": "allowed", "type": "boolean", "description": "是否允许执行该权限码对应的后台操作。"},
           {"name": "is_super_admin", "type": "boolean", "description": "当前账号是否超级管理员；超级管理员直接允许且不返回角色命中。"},
-          {"name": "matched_role_ids", "type": "array", "item_type": "string", "description": "命中该权限码的角色 ID 列表，用于展示授权来源。"},
+          {"name": "matched_role_ids", "type": "array", "item_type": "string", "description": "命中该权限码的角色 ID 列表；普通账号成功命中时最多一个元素。"},
           {"name": "roles", "type": "array", "description": "非超级管理员账号返回的角色实时状态列表；超级管理员分支当前不返回该字段。", "fields": [
             {"name": "role_id", "type": "string", "description": "参与权限判断的角色唯一标识。"},
             {"name": "role_status", "type": "string", "description": "角色实时状态；现有实现暂为字符串格式，enabled=启用，disabled=禁用，deleted=已删除，missing=角色不存在。"}

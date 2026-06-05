@@ -361,7 +361,7 @@
           "type": "string"
         },
         {
-          "constraint": "必须传数组；每项为 UUID 或 8-64 位短 ID；重复项会去重排序；所有角色必须存在且为 enabled。",
+          "constraint": "必须传数组且长度必须为 1；唯一元素为 UUID 或 8-64 位短 ID；该角色必须存在且为 enabled。",
           "description": "新账号绑定角色列表，用于决定账号可获得哪些后台权限。",
           "item_type": "string",
           "name": "role_ids",
@@ -419,7 +419,7 @@
             "type": "string"
           },
           {
-            "description": "已写入的角色绑定 ID 列表，重复输入会被去重排序。",
+            "description": "已写入的唯一角色绑定 ID 列表，成功时固定只有一个元素。",
             "item_type": "string",
             "name": "role_ids",
             "type": "array"
@@ -765,7 +765,7 @@
           "type": "string"
         },
         {
-          "constraint": "必须传数组；每项为 UUID 或 8-64 位短 ID；重复项会去重排序；所有角色必须存在且为 enabled。",
+          "constraint": "必须传数组且长度必须为 1；唯一元素为 UUID 或 8-64 位短 ID；该角色必须存在且为 enabled。",
           "description": "覆盖后的角色绑定列表，用于重新定义账号权限来源。",
           "item_type": "string",
           "name": "role_ids",
@@ -827,7 +827,7 @@
             "type": "string"
           },
           {
-            "description": "更新后实际保存的角色绑定 ID 列表。",
+            "description": "更新后实际保存的唯一角色绑定 ID 列表，成功时固定只有一个元素。",
             "item_type": "string",
             "name": "role_ids",
             "type": "array"
@@ -1021,7 +1021,7 @@
             "type": "boolean"
           },
           {
-            "description": "命中该权限码的角色 ID 列表，用于展示授权来源。",
+            "description": "命中该权限码的角色 ID 列表；普通账号成功命中时最多一个元素。",
             "item_type": "string",
             "name": "matched_role_ids",
             "type": "array"

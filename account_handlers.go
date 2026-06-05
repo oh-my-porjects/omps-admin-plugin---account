@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"regexp"
 	"strconv"
@@ -31,6 +32,10 @@ func (p *AdminAccountPlugin) handleLogin(w http.ResponseWriter, r *http.Request)
 
 	acc, roles, ok, err := p.getAccountByAccount(r.Context(), req.Account)
 	if err != nil {
+		if errors.Is(err, errNoValidAccountRole) {
+			writeJSON(w, 2203, nil, "账号绑定角色已失效")
+			return
+		}
 		writeJSON(w, 2204, nil, "登录失败")
 		return
 	}
@@ -105,6 +110,10 @@ func (p *AdminAccountPlugin) handleValidatePassword(w http.ResponseWriter, r *ht
 	}
 	acc, roles, ok, err := p.getAccountByAccount(r.Context(), req.Account)
 	if err != nil {
+		if errors.Is(err, errNoValidAccountRole) {
+			writeJSON(w, 2284, nil, "账号校验失败")
+			return
+		}
 		writeJSON(w, 2284, nil, "账号校验失败")
 		return
 	}
@@ -114,6 +123,10 @@ func (p *AdminAccountPlugin) handleValidatePassword(w http.ResponseWriter, r *ht
 	}
 	if acc.Status != "enabled" {
 		writeJSON(w, 2283, nil, "账号已停用")
+		return
+	}
+	if available, err := p.rolesAvailable(r, roles); err != nil || !available {
+		writeJSON(w, 2284, nil, "账号校验失败")
 		return
 	}
 	writeJSON(w, 0, map[string]any{
@@ -294,6 +307,10 @@ func (p *AdminAccountPlugin) handleCheckPermission(w http.ResponseWriter, r *htt
 		writeJSON(w, 2274, nil, "账号不存在或已禁用")
 		return
 	}
+	if len(roles) != 1 {
+		writeJSON(w, 2274, nil, "账号不存在、已禁用或没有有效角色")
+		return
+	}
 	if acc.IsSuperAdmin {
 		writeJSON(w, 0, map[string]any{
 			"allowed":          true,
@@ -305,6 +322,10 @@ func (p *AdminAccountPlugin) handleCheckPermission(w http.ResponseWriter, r *htt
 	matched, roleStates, err := p.evaluateRolePermission(r, roles, req.PermissionCode)
 	if err != nil {
 		writeJSON(w, 2275, nil, "权限校验失败")
+		return
+	}
+	if len(roleStates) != 1 || roleStates[0].RoleStatus != "enabled" {
+		writeJSON(w, 2274, nil, "账号不存在、已禁用或没有有效角色")
 		return
 	}
 	writeJSON(w, 0, map[string]any{
@@ -451,6 +472,9 @@ func (p *AdminAccountPlugin) accountPermissionResponse(r *http.Request, acc acco
 	roles, permissions, err := p.roleDetailsAndPermissions(r, roleIDs)
 	if err != nil {
 		return nil, err
+	}
+	if len(roles) != 1 || roles[0].RoleStatus != "enabled" {
+		return nil, errNoValidAccountRole
 	}
 	return map[string]any{
 		"account_id":       acc.ID,

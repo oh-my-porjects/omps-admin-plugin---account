@@ -11,7 +11,9 @@
         "account": "${range_tag}anonymous_${rand:8}",
         "password": "Passw0rd!",
         "status": "enabled",
-        "role_ids": []
+        "role_ids": [
+          "00000000-0000-0000-0000-000000000003"
+        ]
       },
       "expect_status": 200,
       "expect_business_status": 2221,
@@ -20,7 +22,7 @@
       }
     },
     {
-      "name": "超级管理员创建无角色启用账号成功",
+      "name": "超级管理员创建单角色启用账号成功",
       "actor": "admin",
       "depends_on": [
         "login.0"
@@ -32,7 +34,9 @@
         "account": "${range_tag}new_${rand:8}",
         "password": "Passw0rd!",
         "status": "enabled",
-        "role_ids": []
+        "role_ids": [
+          "00000000-0000-0000-0000-000000000003"
+        ]
       },
       "expect_status": 200,
       "expect_business_status": 0,
@@ -40,7 +44,8 @@
         "status": 0,
         "data.account": "${range_tag}new_${rand:8}",
         "data.status": "enabled",
-        "data.is_super_admin": false
+        "data.is_super_admin": false,
+        "data.role_ids.0": "00000000-0000-0000-0000-000000000003"
       },
       "side_effect_tables": [
         "account_accounts",
@@ -60,12 +65,38 @@
         "account": "${range_tag}root",
         "password": "Passw0rd!",
         "status": "enabled",
-        "role_ids": []
+        "role_ids": [
+          "00000000-0000-0000-0000-000000000003"
+        ]
       },
       "expect_status": 200,
       "expect_business_status": 2224,
       "expect_field": {
         "status": 2224
+      }
+    },
+    {
+      "name": "绑定多个角色返回 2225",
+      "actor": "admin",
+      "depends_on": [
+        "login.0"
+      ],
+      "method": "POST",
+      "path": "/api/account/create",
+      "body": {
+        "operator_session_token": "${admin_session_token}",
+        "account": "${range_tag}multi_role_${rand:8}",
+        "password": "Passw0rd!",
+        "status": "enabled",
+        "role_ids": [
+          "00000000-0000-0000-0000-000000000003",
+          "00000000-0000-0000-0000-000000000003"
+        ]
+      },
+      "expect_status": 200,
+      "expect_business_status": 2225,
+      "expect_field": {
+        "status": 2225
       }
     },
     {

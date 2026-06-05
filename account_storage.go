@@ -71,6 +71,22 @@ func (p *AdminAccountPlugin) initStorage(ctx context.Context) error {
 		`DO $$
 		BEGIN
 			IF NOT EXISTS (
+				SELECT 1 FROM pg_indexes
+				WHERE schemaname = current_schema()
+				  AND indexname = 'account_role_bindings_one_role_per_account_idx'
+			) AND NOT EXISTS (
+				SELECT 1 FROM account_role_bindings
+				GROUP BY account_id
+				HAVING COUNT(*) > 1
+			) THEN
+				CREATE UNIQUE INDEX account_role_bindings_one_role_per_account_idx
+				ON account_role_bindings (account_id);
+			END IF;
+		END;
+		$$`,
+		`DO $$
+		BEGIN
+			IF NOT EXISTS (
 				SELECT 1 FROM pg_constraint
 				WHERE conname = 'account_role_bindings_account_id_fkey'
 				  AND conrelid = 'account_role_bindings'::regclass
@@ -114,12 +130,21 @@ func (p *AdminAccountPlugin) getAccountByID(ctx context.Context, accountID strin
 			return acc, nil, ok, err
 		}
 		roles, err := p.accountRoleIDs(ctx, acc.ID)
+		if err != nil {
+			return acc, nil, true, err
+		}
+		roles, err = p.normalizeAccountRoles(ctx, nil, acc.ID, roles)
 		return acc, roles, true, err
 	}
 	p.mu.Lock()
-	defer p.mu.Unlock()
 	acc, ok := p.accounts[accountID]
-	return acc, append([]string(nil), p.roles[accountID]...), ok, nil
+	roles := append([]string(nil), p.roles[accountID]...)
+	p.mu.Unlock()
+	if !ok {
+		return acc, nil, false, nil
+	}
+	roles, err := p.normalizeAccountRoles(ctx, nil, acc.ID, roles)
+	return acc, roles, true, err
 }
 
 func (p *AdminAccountPlugin) getAccountByAccount(ctx context.Context, account string) (accountRecord, []string, bool, error) {
@@ -129,15 +154,22 @@ func (p *AdminAccountPlugin) getAccountByAccount(ctx context.Context, account st
 			return acc, nil, ok, err
 		}
 		roles, err := p.accountRoleIDs(ctx, acc.ID)
+		if err != nil {
+			return acc, nil, true, err
+		}
+		roles, err = p.normalizeAccountRoles(ctx, nil, acc.ID, roles)
 		return acc, roles, true, err
 	}
 	p.mu.Lock()
-	defer p.mu.Unlock()
 	for _, acc := range p.accounts {
 		if acc.Username == account {
-			return acc, append([]string(nil), p.roles[acc.ID]...), true, nil
+			roles := append([]string(nil), p.roles[acc.ID]...)
+			p.mu.Unlock()
+			roles, err := p.normalizeAccountRoles(ctx, nil, acc.ID, roles)
+			return acc, roles, true, err
 		}
 	}
+	p.mu.Unlock()
 	return accountRecord{}, nil, false, nil
 }
 
@@ -162,7 +194,7 @@ func (p *AdminAccountPlugin) accountRoleIDs(ctx context.Context, accountID strin
 		defer p.mu.Unlock()
 		return append([]string(nil), p.roles[accountID]...), nil
 	}
-	rows, err := p.db.QueryContext(ctx, "SELECT role_id::text FROM account_role_bindings WHERE account_id::text=$1 ORDER BY role_id", accountID)
+	rows, err := p.db.QueryContext(ctx, "SELECT role_id::text FROM account_role_bindings WHERE account_id::text=$1 ORDER BY created_at, id::text", accountID)
 	if err != nil {
 		return nil, err
 	}
@@ -250,6 +282,10 @@ func (p *AdminAccountPlugin) listAccounts(ctx context.Context, status, keyword s
 			if err != nil {
 				return nil, 0, err
 			}
+			roles, err = p.normalizeAccountRoles(ctx, nil, acc.ID, roles)
+			if err != nil && !errors.Is(err, errNoValidAccountRole) {
+				return nil, 0, err
+			}
 			items = append(items, accountToResponse(acc, roles))
 		}
 		return items, total, rows.Err()
@@ -264,7 +300,11 @@ func (p *AdminAccountPlugin) listAccounts(ctx context.Context, status, keyword s
 		if keyword != "" && !strings.Contains(strings.ToLower(acc.Username), keyword) {
 			continue
 		}
-		all = append(all, accountToResponse(acc, p.roles[acc.ID]))
+		roles := append([]string(nil), p.roles[acc.ID]...)
+		if len(roles) > 1 {
+			roles = roles[:1]
+		}
+		all = append(all, accountToResponse(acc, roles))
 	}
 	sort.Slice(all, func(i, j int) bool { return all[i].CreatedAt > all[j].CreatedAt })
 	total := len(all)
@@ -348,6 +388,48 @@ func (p *AdminAccountPlugin) replaceAccountRolesTx(ctx context.Context, tx *sql.
 		}
 	}
 	return nil
+}
+
+func (p *AdminAccountPlugin) normalizeAccountRoles(ctx context.Context, tx *sql.Tx, accountID string, roleIDs []string) ([]string, error) {
+	if len(roleIDs) <= 1 {
+		if len(roleIDs) == 1 && strings.TrimSpace(roleIDs[0]) != "" {
+			return []string{strings.TrimSpace(roleIDs[0])}, nil
+		}
+		return []string{}, errNoValidAccountRole
+	}
+	for _, roleID := range roleIDs {
+		roleID = strings.TrimSpace(roleID)
+		if roleID == "" {
+			continue
+		}
+		detail, ok, err := p.adminRoleDetail(ctx, nil, roleID)
+		if err != nil {
+			return nil, err
+		}
+		if !ok || normalizeRoleStatus(detail) != "enabled" {
+			continue
+		}
+		if err := p.keepOnlyAccountRole(ctx, tx, accountID, roleID); err != nil {
+			return nil, err
+		}
+		return []string{roleID}, nil
+	}
+	return []string{}, errNoValidAccountRole
+}
+
+func (p *AdminAccountPlugin) keepOnlyAccountRole(ctx context.Context, tx *sql.Tx, accountID, roleID string) error {
+	if p.db == nil {
+		p.mu.Lock()
+		defer p.mu.Unlock()
+		p.roles[accountID] = []string{roleID}
+		return nil
+	}
+	if tx != nil {
+		_, err := tx.ExecContext(ctx, "DELETE FROM account_role_bindings WHERE account_id::text=$1 AND role_id::text<>$2", accountID, roleID)
+		return err
+	}
+	_, err := p.db.ExecContext(ctx, "DELETE FROM account_role_bindings WHERE account_id::text=$1 AND role_id::text<>$2", accountID, roleID)
+	return err
 }
 
 func (p *AdminAccountPlugin) resetPassword(ctx context.Context, accountID, newPassword string) (accountRecord, bool, error) {
