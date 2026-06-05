@@ -89,6 +89,10 @@ func (p *AdminAccountPlugin) handleMe(w http.ResponseWriter, r *http.Request) {
 	}
 	resp, err := p.accountPermissionResponse(r, acc, roles)
 	if err != nil {
+		if errors.Is(err, errNoValidAccountRole) {
+			writeJSON(w, 2214, nil, "账号已禁用")
+			return
+		}
 		writeJSON(w, 2215, nil, "查询当前账号失败")
 		return
 	}
