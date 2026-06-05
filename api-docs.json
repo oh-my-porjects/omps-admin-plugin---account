@@ -1,6 +1,6 @@
 {
   "module": "account",
-  "module_title": "账号公共模块",
+  "module_title": "账号管理",
   "apis": [
     {
       "method": "POST",
@@ -486,6 +486,52 @@
         ]
       },
       "response_example": {"status": 0, "data": "data: [2026-05-31T06:00:00Z] 任务 admin_account_selftest_task 开始执行\n\ndata: admin_account selftest task executed\n\n", "msg": ""}
+    },
+    {
+      "method": "POST",
+      "path": "/_internal/selftest/admin_account",
+      "endpoint_key": "POST /_internal/selftest/admin_account",
+      "title": "内部自测入口",
+      "description": "供 runtime 内部触发模块内嵌 tests 目录中的 HTTP 自测用例。",
+      "auth": "api_key",
+      "params": [],
+      "request_example": {},
+      "response": {
+        "description": "返回自测总数、通过数、失败数和逐用例执行结果。",
+        "data_type": "object",
+        "fields": [
+          {"name": "total", "type": "integer", "description": "本次执行的自测用例总数，包含通过和失败用例。"},
+          {"name": "passed", "type": "integer", "description": "本次执行通过的自测用例数量。"},
+          {"name": "failed", "type": "integer", "description": "本次执行失败的自测用例数量。"},
+          {"name": "results", "type": "array", "description": "逐条自测用例的执行结果；不同 kind 或失败阶段会带有不同动态字段。", "fields": [
+            {"name": "file", "type": "string", "description": "用例所在的 tests 文件名，用于定位测试资产。"},
+            {"name": "index", "type": "integer", "description": "用例在文件中的序号，从 0 开始。"},
+            {"name": "name", "type": "string", "description": "测试用例名称，用于后台测试页展示。"},
+            {"name": "api", "type": "string", "description": "测试文件声明覆盖的 API 锚点。"},
+            {"name": "method", "type": "string", "description": "实际执行请求的 HTTP 方法；跳过类用例可能不返回该字段。"},
+            {"name": "path", "type": "string", "description": "替换模板变量后的实际请求路径；跳过类用例可能不返回该字段。"},
+            {"name": "request_body", "type": "string", "description": "替换模板变量后的请求体字符串，用于排查失败用例。"},
+            {"name": "elapsed_ms", "type": "integer", "description": "handler 执行耗时毫秒数，用于观察自测性能。"},
+            {"name": "http_code", "type": "integer", "description": "handler 返回的 HTTP 状态码。"},
+            {"name": "response_body", "type": "string", "description": "handler 返回体，超过 4096 字符会被截断。"},
+            {"name": "passed", "type": "boolean", "description": "该用例是否通过断言。"},
+            {"name": "kind", "type": "string", "description": "用例类型；现有实现遇到 websocket、sse、file_upload 会跳过并标记通过。"},
+            {"name": "skipped_reason", "type": "string", "description": "跳过非 HTTP 用例时的原因说明。"},
+            {"name": "error", "type": "string", "description": "路由缺失、读取失败或 panic 等错误说明。"},
+            {"name": "fail_reason", "type": "string", "description": "HTTP 状态、响应内容或字段断言不匹配时的失败原因。"}
+          ]},
+          {"name": "error", "type": "string", "description": "读取 tests 目录失败时返回的整体错误说明；正常执行时不返回该字段。"}
+        ],
+        "error_codes": [
+          {"status": 401, "msg": "X-Internal-Token 缺失或不匹配时 HTTP 401 unauthorized"},
+          {"status": 1, "msg": "自测入口 panic 时返回业务状态 1"}
+        ]
+      },
+      "response_example": {"status": 0, "data": {"total": 1, "passed": 1, "failed": 0, "results": [{"file": "hello.test.json", "index": 0, "name": "hello 返回模块元信息", "api": "GET /api/account/hello", "method": "GET", "path": "/api/account/hello", "request_body": "", "elapsed_ms": 1, "http_code": 200, "response_body": "{\"status\":0,\"data\":{\"module\":\"account\",\"version\":\"dev\"},\"msg\":\"ok\"}\n", "passed": true}]}, "msg": ""},
+      "rules": [
+        {"category": "security", "title": "自测入口只接受内部令牌", "body": "请求必须携带 X-Internal-Token，且与 RUNTIME_INTERNAL_TOKEN 匹配，否则直接返回 HTTP 401。", "code_loc": "selftest.go:82-86"},
+        {"category": "concurrency", "title": "自测一次只执行一组", "body": "selftestMu 会串行化 runAllSelftests，避免并发自测互相污染共享状态。", "code_loc": "selftest.go:94-97"}
+      ]
     }
   ]
 }
