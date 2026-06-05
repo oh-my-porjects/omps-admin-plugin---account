@@ -312,16 +312,16 @@ func (p *AdminAccountPlugin) handleCheckPermission(w http.ResponseWriter, r *htt
 		writeJSON(w, 2274, nil, "账号不存在或已禁用")
 		return
 	}
-	if len(roles) != 1 {
-		writeJSON(w, 2274, nil, "账号不存在、已禁用或没有有效角色")
-		return
-	}
 	if acc.IsSuperAdmin {
 		writeJSON(w, 0, map[string]any{
 			"allowed":          true,
 			"is_super_admin":   true,
 			"matched_role_ids": []string{},
 		}, "ok")
+		return
+	}
+	if len(roles) != 1 {
+		writeJSON(w, 2274, nil, "账号不存在、已禁用或没有有效角色")
 		return
 	}
 	matched, roleStates, err := p.evaluateRolePermission(r, roles, req.PermissionCode)

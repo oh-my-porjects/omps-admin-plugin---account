@@ -134,6 +134,9 @@ func (p *AdminAccountPlugin) getAccountByID(ctx context.Context, accountID strin
 			return acc, nil, true, err
 		}
 		roles, err = p.normalizeAccountRoles(ctx, nil, acc.ID, roles)
+		if err != nil && acc.IsSuperAdmin && errors.Is(err, errNoValidAccountRole) {
+			return acc, []string{}, true, nil
+		}
 		return acc, roles, true, err
 	}
 	p.mu.Lock()
@@ -144,6 +147,9 @@ func (p *AdminAccountPlugin) getAccountByID(ctx context.Context, accountID strin
 		return acc, nil, false, nil
 	}
 	roles, err := p.normalizeAccountRoles(ctx, nil, acc.ID, roles)
+	if err != nil && acc.IsSuperAdmin && errors.Is(err, errNoValidAccountRole) {
+		return acc, []string{}, true, nil
+	}
 	return acc, roles, true, err
 }
 
@@ -158,6 +164,9 @@ func (p *AdminAccountPlugin) getAccountByAccount(ctx context.Context, account st
 			return acc, nil, true, err
 		}
 		roles, err = p.normalizeAccountRoles(ctx, nil, acc.ID, roles)
+		if err != nil && acc.IsSuperAdmin && errors.Is(err, errNoValidAccountRole) {
+			return acc, []string{}, true, nil
+		}
 		return acc, roles, true, err
 	}
 	p.mu.Lock()
@@ -166,6 +175,9 @@ func (p *AdminAccountPlugin) getAccountByAccount(ctx context.Context, account st
 			roles := append([]string(nil), p.roles[acc.ID]...)
 			p.mu.Unlock()
 			roles, err := p.normalizeAccountRoles(ctx, nil, acc.ID, roles)
+			if err != nil && acc.IsSuperAdmin && errors.Is(err, errNoValidAccountRole) {
+				return acc, []string{}, true, nil
+			}
 			return acc, roles, true, err
 		}
 	}
