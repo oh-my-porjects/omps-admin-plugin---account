@@ -1,0 +1,22 @@
+# 模块声明契约（稳定事实源）
+# 只放需要进入 Git 评审的模块事实；派生索引由 admin-server 写入工作区 .gitNexus/module-indexes/。
+title: "账号管理"
+summary: "账号公共模块 — 平台官方维护的基础设施模块，提供后台账号、登录、session、临时超管账号机制等能力。"
+
+tables:
+  owner_tables:
+    - "account_accounts"
+    - "account_role_bindings"
+
+lifecycle:
+  state_strategy: externalized
+  shutdown_requirements:
+    - "后台 worker 必须监听 LifecycleCtx/IsUnloading，在模块卸载或重载时停止接收新任务并协作退出。"
+  reload_risks: []
+
+background_tasks:
+  exit_policy: cooperative_cancel
+
+realtime:
+  user_ws_events: []
+  admin_events: []

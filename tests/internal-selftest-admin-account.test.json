@@ -1,0 +1,24 @@
+{
+  "api": "POST /_internal/selftest/admin_account",
+  "cases": [
+    {
+      "name": "内部自测缺少令牌返回 401",
+      "kind": "http",
+      "actor": "anonymous",
+      "method": "POST",
+      "path": "/_internal/selftest/admin_account",
+      "expect_status": 401
+    },
+    {
+      "name": "内部自测错误令牌返回 401",
+      "kind": "http",
+      "actor": "anonymous",
+      "method": "POST",
+      "path": "/_internal/selftest/admin_account",
+      "headers": {
+        "X-Internal-Token": "invalid"
+      },
+      "expect_status": 401
+    }
+  ]
+}
