@@ -1,0 +1,164 @@
+{
+  "method": "POST",
+  "path": "/api/account/create",
+  "endpoint_key": "POST /api/account/create",
+  "title": "创建后台账号",
+  "description": "校验操作者账号管理权限后创建后台账号并绑定角色。",
+  "auth": "public",
+  "params": [
+    {
+      "name": "operator_session_token",
+      "type": "string",
+      "required": true,
+      "constraint": "必须属于启用账号，且操作者是超级管理员或拥有 admin_account.manage 权限；为空时可由管理端请求头兜底。",
+      "description": "操作者后台会话令牌，用于确认谁在创建账号。"
+    },
+    {
+      "name": "account",
+      "type": "string",
+      "required": true,
+      "constraint": "去除首尾空白后长度 4-32 个字符，账号名必须唯一。",
+      "description": "新后台账号登录名，用于后续登录和后台检索。"
+    },
+    {
+      "name": "password",
+      "type": "string",
+      "required": true,
+      "constraint": "长度 6-32 个字符。",
+      "description": "新后台账号初始密码，服务端仅保存哈希。"
+    },
+    {
+      "name": "status",
+      "type": "string",
+      "required": true,
+      "constraint": "现有实现暂为字符串枚举：enabled=创建后可登录，disabled=创建后不可登录。",
+      "description": "新账号启停状态，决定创建后是否允许登录。",
+      "enum": {
+        "enabled": "启用",
+        "disabled": "停用"
+      }
+    },
+    {
+      "name": "role_ids",
+      "type": "array",
+      "required": true,
+      "item_type": "string",
+      "constraint": "必须传数组且长度必须为 1；唯一元素为 UUID 或 8-64 位短 ID；该角色必须存在且为 enabled。",
+      "description": "新账号绑定角色列表，用于决定账号可获得哪些后台权限。"
+    }
+  ],
+  "request_example": {
+    "operator_session_token": "4f6e8b2a9c1d0e3f4a5b6c7d8e9f0011",
+    "account": "support_admin",
+    "password": "Passw0rd",
+    "status": "enabled",
+    "role_ids": [
+      "00000000-0000-0000-0000-000000000003"
+    ]
+  },
+  "response": {
+    "description": "返回新建后台账号资料。",
+    "data_type": "object",
+    "fields": [
+      {
+        "name": "account_id",
+        "type": "string",
+        "description": "新建后台账号唯一标识，用于后续更新、重置密码或删除。"
+      },
+      {
+        "name": "account",
+        "type": "string",
+        "description": "新建后台账号登录名。"
+      },
+      {
+        "name": "status",
+        "type": "string",
+        "description": "账号启停状态；现有实现暂为字符串格式，enabled=可登录，disabled=不可登录。",
+        "enum": {
+          "enabled": "启用",
+          "disabled": "停用"
+        }
+      },
+      {
+        "name": "role_ids",
+        "type": "array",
+        "item_type": "string",
+        "description": "已写入的唯一角色绑定 ID 列表，成功时固定只有一个元素。"
+      },
+      {
+        "name": "is_super_admin",
+        "type": "boolean",
+        "description": "是否超级管理员；普通创建接口创建的账号为 false。"
+      },
+      {
+        "name": "created_at",
+        "type": "string",
+        "description": "账号创建时间；现有实现暂为 RFC3339 字符串格式。"
+      },
+      {
+        "name": "updated_at",
+        "type": "string",
+        "description": "账号最近更新时间；现有实现暂为 RFC3339 字符串格式。"
+      }
+    ],
+    "error_codes": [
+      {
+        "status": 2221,
+        "msg": "请求体解析失败或未登录"
+      },
+      {
+        "status": 2222,
+        "msg": "无账号管理权限"
+      },
+      {
+        "status": 2223,
+        "msg": "账号参数非法"
+      },
+      {
+        "status": 2224,
+        "msg": "账号已存在"
+      },
+      {
+        "status": 2225,
+        "msg": "角色参数非法"
+      },
+      {
+        "status": 2226,
+        "msg": "角色不存在或已停用"
+      },
+      {
+        "status": 2227,
+        "msg": "创建账号失败或账号管理权限校验失败"
+      }
+    ]
+  },
+  "response_example": {
+    "status": 0,
+    "data": {
+      "account_id": "A8kLm2Qz9P0r",
+      "account": "support_admin",
+      "status": "enabled",
+      "role_ids": [
+        "00000000-0000-0000-0000-000000000003"
+      ],
+      "is_super_admin": false,
+      "created_at": "2026-05-31T06:05:00Z",
+      "updated_at": "2026-05-31T06:05:00Z"
+    },
+    "msg": "ok"
+  },
+  "rules": [
+    {
+      "category": "security",
+      "title": "账号管理操作需要专门权限",
+      "body": "创建账号要求操作者为超级管理员，或其绑定角色命中 admin_account.manage 权限点。",
+      "code_loc": "account_handlers.go:370-391"
+    },
+    {
+      "category": "constraint",
+      "title": "角色绑定写入前实时校验",
+      "body": "role_ids 必须只包含一个去空白后的有效角色 ID，并调用 role 模块确认角色存在且状态为 enabled。",
+      "code_loc": "account_validation.go:25-56"
+    }
+  ]
+}

@@ -1,0 +1,154 @@
+{
+  "method": "PUT",
+  "path": "/api/account/update",
+  "endpoint_key": "PUT /api/account/update",
+  "title": "更新后台账号",
+  "description": "校验账号管理权限后更新账号启停状态，并覆盖账号角色绑定。",
+  "auth": "public",
+  "params": [
+    {
+      "name": "operator_session_token",
+      "type": "string",
+      "required": true,
+      "constraint": "必须属于启用账号，且操作者是超级管理员或拥有 admin_account.manage 权限；为空时可由管理端请求头兜底。",
+      "description": "操作者后台会话令牌，用于确认是否有权限修改账号。"
+    },
+    {
+      "name": "account_id",
+      "type": "string",
+      "required": true,
+      "constraint": "UUID 或 8-64 位短 ID。",
+      "description": "要修改的后台账号唯一标识。"
+    },
+    {
+      "name": "status",
+      "type": "string",
+      "required": true,
+      "constraint": "现有实现暂为字符串枚举：enabled=允许登录，disabled=禁止登录。",
+      "description": "目标账号的新启停状态。",
+      "enum": {
+        "enabled": "启用",
+        "disabled": "停用"
+      }
+    },
+    {
+      "name": "role_ids",
+      "type": "array",
+      "required": true,
+      "item_type": "string",
+      "constraint": "必须传数组且长度必须为 1；唯一元素为 UUID 或 8-64 位短 ID；该角色必须存在且为 enabled。",
+      "description": "覆盖后的角色绑定列表，用于重新定义账号权限来源。"
+    }
+  ],
+  "request_example": {
+    "operator_session_token": "4f6e8b2a9c1d0e3f4a5b6c7d8e9f0011",
+    "account_id": "00000000-0000-0000-0000-000000000002",
+    "status": "enabled",
+    "role_ids": [
+      "00000000-0000-0000-0000-000000000003"
+    ]
+  },
+  "response": {
+    "description": "返回更新后的账号资料。",
+    "data_type": "object",
+    "fields": [
+      {
+        "name": "account_id",
+        "type": "string",
+        "description": "已更新后台账号唯一标识。"
+      },
+      {
+        "name": "account",
+        "type": "string",
+        "description": "已更新后台账号登录名。"
+      },
+      {
+        "name": "status",
+        "type": "string",
+        "description": "更新后的账号启停状态；现有实现暂为字符串格式。",
+        "enum": {
+          "enabled": "启用",
+          "disabled": "停用"
+        }
+      },
+      {
+        "name": "role_ids",
+        "type": "array",
+        "item_type": "string",
+        "description": "更新后实际保存的唯一角色绑定 ID 列表，成功时固定只有一个元素。"
+      },
+      {
+        "name": "is_super_admin",
+        "type": "boolean",
+        "description": "是否超级管理员；普通管理员不能修改超级管理员账号。"
+      },
+      {
+        "name": "created_at",
+        "type": "string",
+        "description": "账号创建时间；现有实现暂为 RFC3339 字符串格式。"
+      },
+      {
+        "name": "updated_at",
+        "type": "string",
+        "description": "账号最近更新时间；现有实现暂为 RFC3339 字符串格式。"
+      }
+    ],
+    "error_codes": [
+      {
+        "status": 2251,
+        "msg": "请求体解析失败或未登录"
+      },
+      {
+        "status": 2252,
+        "msg": "无账号管理权限"
+      },
+      {
+        "status": 2253,
+        "msg": "account_id 参数非法"
+      },
+      {
+        "status": 2254,
+        "msg": "账号不存在"
+      },
+      {
+        "status": 2255,
+        "msg": "状态参数非法或角色参数非法"
+      },
+      {
+        "status": 2256,
+        "msg": "角色不存在或已停用"
+      },
+      {
+        "status": 2257,
+        "msg": "普通后台账号不能修改超级管理员账号"
+      },
+      {
+        "status": 2258,
+        "msg": "更新账号失败或账号管理权限校验失败"
+      }
+    ]
+  },
+  "response_example": {
+    "status": 0,
+    "data": {
+      "account_id": "00000000-0000-0000-0000-000000000002",
+      "account": "operator",
+      "status": "enabled",
+      "role_ids": [
+        "00000000-0000-0000-0000-000000000003"
+      ],
+      "is_super_admin": false,
+      "created_at": "2026-05-31T06:00:00Z",
+      "updated_at": "2026-05-31T06:20:00Z"
+    },
+    "msg": "ok"
+  },
+  "rules": [
+    {
+      "category": "security",
+      "title": "普通管理员不能修改超级管理员",
+      "body": "当目标账号是超级管理员且操作者不是超级管理员时，更新会被拒绝。",
+      "code_loc": "account_handlers.go:232-235"
+    }
+  ]
+}

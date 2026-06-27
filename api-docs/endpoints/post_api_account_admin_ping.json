@@ -1,0 +1,34 @@
+{
+  "method": "POST",
+  "path": "/api/account/admin/ping",
+  "endpoint_key": "POST /api/account/admin/ping",
+  "title": "后台账号管理接口探活",
+  "description": "用于后台管理页检查账号模块管理接口是否可达。",
+  "auth": "api_key",
+  "params": [],
+  "request_example": {},
+  "response": {
+    "description": "接口可达时 data 为 null，msg 为 pong。",
+    "data_type": "null",
+    "fields": [],
+    "error_codes": [
+      {
+        "status": 500,
+        "msg": "运行时写响应失败时可能由 HTTP 层返回错误"
+      }
+    ]
+  },
+  "response_example": {
+    "status": 0,
+    "data": null,
+    "msg": "pong"
+  },
+  "rules": [
+    {
+      "category": "security",
+      "title": "后台账号管理接口探活 鉴权边界",
+      "body": "该接口按 auth=api_key 执行访问控制；未满足身份、内部令牌、后台会话或 API key 要求时必须拒绝主流程。接口职责：用于后台管理页检查账号模块管理接口是否可达。",
+      "code_loc": "main.go:138"
+    }
+  ]
+}

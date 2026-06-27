@@ -1,0 +1,119 @@
+{
+  "method": "POST",
+  "path": "/api/account/check-permission",
+  "endpoint_key": "POST /api/account/check-permission",
+  "title": "检查后台权限",
+  "description": "检查后台会话对应账号是否拥有指定权限码。",
+  "auth": "public",
+  "params": [
+    {
+      "name": "session_token",
+      "type": "string",
+      "required": true,
+      "constraint": "非空字符串。",
+      "description": "登录接口返回的后台会话令牌，用于识别要校验权限的账号。"
+    },
+    {
+      "name": "permission_code",
+      "type": "string",
+      "required": true,
+      "constraint": "匹配 ^[a-z0-9._-]{3,80}$。",
+      "description": "要校验的权限码，例如 admin_account.manage，用于判断账号是否允许执行某项后台操作。"
+    }
+  ],
+  "request_example": {
+    "session_token": "4f6e8b2a9c1d0e3f4a5b6c7d8e9f0011",
+    "permission_code": "admin_account.manage"
+  },
+  "response": {
+    "description": "返回权限是否通过、是否超级管理员和命中的角色。",
+    "data_type": "object",
+    "fields": [
+      {
+        "name": "allowed",
+        "type": "boolean",
+        "description": "是否允许执行该权限码对应的后台操作。"
+      },
+      {
+        "name": "is_super_admin",
+        "type": "boolean",
+        "description": "当前账号是否超级管理员；超级管理员直接允许且不返回角色命中。"
+      },
+      {
+        "name": "matched_role_ids",
+        "type": "array",
+        "item_type": "string",
+        "description": "命中该权限码的角色 ID 列表；普通账号成功命中时最多一个元素。"
+      },
+      {
+        "name": "roles",
+        "type": "array",
+        "description": "非超级管理员账号返回的角色实时状态列表；超级管理员分支当前不返回该字段。",
+        "fields": [
+          {
+            "name": "role_id",
+            "type": "string",
+            "description": "参与权限判断的角色唯一标识。"
+          },
+          {
+            "name": "role_status",
+            "type": "string",
+            "description": "角色实时状态；现有实现暂为字符串格式，enabled=启用，disabled=禁用，deleted=已删除，missing=角色不存在。",
+            "enum": {
+              "normal": "正常",
+              "deleted": "已软删除",
+              "cleaned": "对象已清理"
+            }
+          }
+        ]
+      }
+    ],
+    "error_codes": [
+      {
+        "status": 2271,
+        "msg": "请求体解析失败或会话令牌参数非法"
+      },
+      {
+        "status": 2272,
+        "msg": "会话不存在或已过期"
+      },
+      {
+        "status": 2273,
+        "msg": "权限参数非法"
+      },
+      {
+        "status": 2274,
+        "msg": "账号不存在或已禁用"
+      },
+      {
+        "status": 2275,
+        "msg": "权限校验失败"
+      }
+    ]
+  },
+  "response_example": {
+    "status": 0,
+    "data": {
+      "allowed": true,
+      "is_super_admin": false,
+      "matched_role_ids": [
+        "00000000-0000-0000-0000-000000000003"
+      ],
+      "roles": [
+        {
+          "role_id": "00000000-0000-0000-0000-000000000003",
+          "role_status": "enabled"
+        }
+      ]
+    },
+    "msg": "ok"
+  },
+  "rules": [
+    {
+      "category": "constraint",
+      "title": "检查后台权限 参数与状态校验",
+      "body": "该写入接口必须先校验必填参数、业务状态和数据存在性；校验失败时返回业务错误且不能产生不一致副作用。接口职责：检查后台会话对应账号是否拥有指定权限码。",
+      "code_loc": "main.go:131"
+    }
+  ]
+}

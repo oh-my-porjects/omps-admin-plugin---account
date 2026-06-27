@@ -1,0 +1,148 @@
+{
+  "method": "POST",
+  "path": "/api/account/login",
+  "endpoint_key": "POST /api/account/login",
+  "title": "后台账号登录",
+  "description": "使用后台账号和密码登录，成功后在 Redis 中创建后台会话令牌。",
+  "auth": "public",
+  "params": [
+    {
+      "name": "account",
+      "type": "string",
+      "required": true,
+      "constraint": "去除首尾空白后长度 4-32 个字符。",
+      "description": "后台账号登录名，用于定位要登录的后台账号记录。"
+    },
+    {
+      "name": "password",
+      "type": "string",
+      "required": true,
+      "constraint": "长度 6-32 个字符。",
+      "description": "后台账号登录密码，用于和服务端保存的密码哈希比对。"
+    }
+  ],
+  "request_example": {
+    "account": "admin_root",
+    "password": "Root123456"
+  },
+  "response": {
+    "description": "返回登录账号信息、会话令牌、会话过期时间和 TTL。",
+    "data_type": "object",
+    "fields": [
+      {
+        "name": "account",
+        "type": "object",
+        "description": "本次登录成功的后台账号资料，用于前端展示当前操作者身份。",
+        "fields": [
+          {
+            "name": "account_id",
+            "type": "string",
+            "description": "后台账号唯一标识，用于后续账号管理和角色绑定关联。"
+          },
+          {
+            "name": "account",
+            "type": "string",
+            "description": "后台账号登录名，用于后台界面展示和检索。"
+          },
+          {
+            "name": "status",
+            "type": "string",
+            "description": "账号启停状态；现有实现暂为字符串格式，enabled=可登录可使用，disabled=已停用不可登录。",
+            "enum": {
+              "enabled": "启用",
+              "disabled": "停用"
+            }
+          },
+          {
+            "name": "role_ids",
+            "type": "array",
+            "item_type": "string",
+            "description": "账号绑定的角色 ID 列表，用于后续聚合权限码。"
+          },
+          {
+            "name": "is_super_admin",
+            "type": "boolean",
+            "description": "是否超级管理员；为 true 时可绕过普通角色权限校验。"
+          },
+          {
+            "name": "created_at",
+            "type": "string",
+            "description": "账号创建时间；现有实现暂为 RFC3339 字符串格式。"
+          },
+          {
+            "name": "updated_at",
+            "type": "string",
+            "description": "账号最近更新时间；现有实现暂为 RFC3339 字符串格式。"
+          }
+        ]
+      },
+      {
+        "name": "session_token",
+        "type": "string",
+        "description": "后台会话令牌，后续查询当前账号和权限校验接口需要携带。"
+      },
+      {
+        "name": "expires_at",
+        "type": "string",
+        "description": "会话过期时间；现有实现暂为 RFC3339 字符串格式。"
+      },
+      {
+        "name": "ttl_seconds",
+        "type": "integer",
+        "description": "会话有效期秒数，来自 ACCOUNT_SESSION_TTL_SECONDS 配置或默认值。"
+      }
+    ],
+    "error_codes": [
+      {
+        "status": 2201,
+        "msg": "账号和密码参数非法"
+      },
+      {
+        "status": 2202,
+        "msg": "账号或密码错误"
+      },
+      {
+        "status": 2203,
+        "msg": "账号已停用或账号绑定角色已失效"
+      },
+      {
+        "status": 2204,
+        "msg": "登录失败"
+      }
+    ]
+  },
+  "response_example": {
+    "status": 0,
+    "data": {
+      "account": {
+        "account_id": "00000000-0000-0000-0000-000000000001",
+        "account": "admin_root",
+        "status": "enabled",
+        "role_ids": [
+          "00000000-0000-0000-0000-000000000001"
+        ],
+        "is_super_admin": true,
+        "created_at": "2026-05-31T06:00:00Z",
+        "updated_at": "2026-05-31T06:00:00Z"
+      },
+      "session_token": "4f6e8b2a9c1d0e3f4a5b6c7d8e9f0011",
+      "expires_at": "2026-05-31T14:00:00Z",
+      "ttl_seconds": 28800
+    },
+    "msg": "ok"
+  },
+  "rules": [
+    {
+      "category": "security",
+      "title": "停用账号和失效角色不可登录",
+      "body": "账号密码正确后仍会检查账号状态和所有绑定角色状态；账号不是 enabled 或任一角色不可用时不创建会话。",
+      "code_loc": "account_handlers.go:35-51"
+    },
+    {
+      "category": "constraint",
+      "title": "会话依赖 Redis TTL",
+      "body": "登录成功后会话写入 Redis 并设置过期时间；Redis 不可用或写入失败会返回登录失败。",
+      "code_loc": "account_session_storage.go:11-29"
+    }
+  ]
+}

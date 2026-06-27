@@ -1,0 +1,76 @@
+{
+  "method": "POST",
+  "path": "/api/admin/account/delete",
+  "endpoint_key": "POST /api/admin/account/delete",
+  "title": "删除后台账号",
+  "description": "校验账号管理权限后删除指定后台账号及其角色绑定。",
+  "auth": "api_key",
+  "params": [
+    {
+      "name": "operator_session_token",
+      "type": "string",
+      "required": true,
+      "constraint": "必须属于启用账号，且操作者是超级管理员或拥有 admin_account.manage 权限；为空时可由管理端请求头兜底。",
+      "description": "操作者后台会话令牌，用于确认删除权限。"
+    },
+    {
+      "name": "account_id",
+      "type": "string",
+      "required": true,
+      "constraint": "UUID 或 8-64 位短 ID；不能是操作者自己的账号。",
+      "description": "要删除的后台账号唯一标识。"
+    }
+  ],
+  "request_example": {
+    "operator_session_token": "4f6e8b2a9c1d0e3f4a5b6c7d8e9f0011",
+    "account_id": "A8kLm2Qz9P0r"
+  },
+  "response": {
+    "description": "删除成功时 data 为 null。",
+    "data_type": "null",
+    "fields": [],
+    "error_codes": [
+      {
+        "status": 2291,
+        "msg": "请求体解析失败或未登录"
+      },
+      {
+        "status": 2292,
+        "msg": "无账号管理权限"
+      },
+      {
+        "status": 2293,
+        "msg": "account_id 参数非法"
+      },
+      {
+        "status": 2294,
+        "msg": "账号不存在"
+      },
+      {
+        "status": 2295,
+        "msg": "当前账号不能删除自己"
+      },
+      {
+        "status": 2296,
+        "msg": "普通后台账号不能删除超级管理员账号"
+      },
+      {
+        "status": 2297,
+        "msg": "删除账号失败或账号管理权限校验失败"
+      }
+    ]
+  },
+  "response_example": {
+    "status": 0,
+    "data": null,
+    "msg": "ok"
+  },
+  "rules": [
+    {
+      "category": "security",
+      "title": "不能删除当前操作者账号",
+      "body": "删除目标账号与操作者账号相同时返回 2295，避免管理员误删自身导致当前管理会话失去主体。",
+      "code_loc": "account_delete.go:32-35"
+    }
+  ]
+}

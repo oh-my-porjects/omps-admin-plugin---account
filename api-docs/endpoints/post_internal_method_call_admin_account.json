@@ -1,0 +1,76 @@
+{
+  "method": "POST",
+  "path": "/_internal/method-call/admin_account",
+  "endpoint_key": "POST /_internal/method-call/admin_account",
+  "title": "内部方法调用",
+  "description": "供 runtime 内部按方法名调用模块注册方法。",
+  "auth": "api_key",
+  "params": [
+    {
+      "name": "method",
+      "type": "string",
+      "required": true,
+      "constraint": "必须是 Methods 表中已注册的方法名。",
+      "description": "要调用的内部方法名称，用于在模块 Methods 表中定位处理函数。"
+    },
+    {
+      "name": "args",
+      "type": "object",
+      "required": false,
+      "constraint": "自由 JSON 对象，具体结构由目标内部方法决定。",
+      "description": "传给内部方法的动态参数；当前框架不固定子字段。",
+      "fields": []
+    }
+  ],
+  "request_example": {
+    "method": "AdminAccountSelftestEcho",
+    "args": {
+      "trace_id": "demo-001"
+    }
+  },
+  "response": {
+    "description": "返回内部方法执行结果；data 结构由被调用方法决定。",
+    "data_type": "object",
+    "fields": [
+      {
+        "name": "module",
+        "type": "string",
+        "description": "示例方法返回的模块标识，当前注册示例值为 admin_account。"
+      },
+      {
+        "name": "echo",
+        "type": "object",
+        "description": "示例方法原样回显的动态 args；结构由调用方传入。",
+        "fields": []
+      }
+    ],
+    "error_codes": [
+      {
+        "status": 401,
+        "msg": "X-Internal-Token 缺失或不匹配时 HTTP 401 unauthorized"
+      },
+      {
+        "status": 1,
+        "msg": "请求体解析失败、method 为空、方法未注册、方法返回错误或 panic"
+      }
+    ]
+  },
+  "response_example": {
+    "status": 0,
+    "data": {
+      "module": "admin_account",
+      "echo": {
+        "trace_id": "demo-001"
+      }
+    },
+    "msg": ""
+  },
+  "rules": [
+    {
+      "category": "security",
+      "title": "内部方法调用 鉴权边界",
+      "body": "该接口按 auth=api_key 执行访问控制；未满足身份、内部令牌、后台会话或 API key 要求时必须拒绝主流程。接口职责：供 runtime 内部按方法名调用模块注册方法。",
+      "code_loc": "method_call.go:30"
+    }
+  ]
+}

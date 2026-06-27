@@ -1,0 +1,124 @@
+{
+  "method": "GET",
+  "path": "/api/account/me",
+  "endpoint_key": "GET /api/account/me",
+  "title": "查询当前后台账号",
+  "description": "按后台会话令牌查询当前账号、绑定角色状态和聚合权限码。",
+  "auth": "public",
+  "params": [
+    {
+      "name": "session_token",
+      "type": "string",
+      "required": true,
+      "constraint": "非空查询参数。",
+      "description": "登录接口返回的后台会话令牌，用于定位当前操作者账号。"
+    }
+  ],
+  "response": {
+    "description": "返回当前后台账号身份、角色可用状态和启用角色聚合后的权限码。",
+    "data_type": "object",
+    "fields": [
+      {
+        "name": "account_id",
+        "type": "string",
+        "description": "当前后台账号唯一标识，用于关联账号资料和后续操作审计。"
+      },
+      {
+        "name": "account",
+        "type": "string",
+        "description": "当前后台账号登录名，用于后台界面展示。"
+      },
+      {
+        "name": "status",
+        "type": "string",
+        "description": "账号启停状态；现有实现暂为字符串格式，enabled=可使用，disabled=已禁用。",
+        "enum": {
+          "enabled": "启用",
+          "disabled": "停用"
+        }
+      },
+      {
+        "name": "is_super_admin",
+        "type": "boolean",
+        "description": "是否超级管理员；为 true 时权限码列表为空但具备管理权限。"
+      },
+      {
+        "name": "roles",
+        "type": "array",
+        "description": "当前账号绑定角色在 role 模块中的实时状态列表。",
+        "fields": [
+          {
+            "name": "role_id",
+            "type": "string",
+            "description": "绑定角色唯一标识，用于追踪权限来源。"
+          },
+          {
+            "name": "role_status",
+            "type": "string",
+            "description": "角色实时状态；现有实现暂为字符串格式，enabled=启用，disabled=禁用，deleted=已删除，missing=角色不存在。",
+            "enum": {
+              "normal": "正常",
+              "deleted": "已软删除",
+              "cleaned": "对象已清理"
+            }
+          }
+        ]
+      },
+      {
+        "name": "permission_codes",
+        "type": "array",
+        "item_type": "string",
+        "description": "启用角色聚合后的权限码列表，用于前端控制菜单和操作入口。"
+      }
+    ],
+    "error_codes": [
+      {
+        "status": 2211,
+        "msg": "会话令牌参数非法"
+      },
+      {
+        "status": 2212,
+        "msg": "会话不存在或已过期"
+      },
+      {
+        "status": 2213,
+        "msg": "账号不存在"
+      },
+      {
+        "status": 2214,
+        "msg": "账号已禁用"
+      },
+      {
+        "status": 2215,
+        "msg": "查询当前账号失败"
+      }
+    ]
+  },
+  "response_example": {
+    "status": 0,
+    "data": {
+      "account_id": "00000000-0000-0000-0000-000000000002",
+      "account": "operator",
+      "status": "enabled",
+      "is_super_admin": false,
+      "roles": [
+        {
+          "role_id": "00000000-0000-0000-0000-000000000003",
+          "role_status": "enabled"
+        }
+      ],
+      "permission_codes": [
+        "admin_account.manage"
+      ]
+    },
+    "msg": "ok"
+  },
+  "rules": [
+    {
+      "category": "business",
+      "title": "查询当前后台账号 返回当前事实",
+      "body": "该查询接口必须按照当前代码和数据表返回稳定字段结构；分页、筛选、排序和空结果语义必须与 api-docs.json 保持一致。接口职责：按后台会话令牌查询当前账号、绑定角色状态和聚合权限码。",
+      "code_loc": "main.go:123"
+    }
+  ]
+}

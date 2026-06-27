@@ -1,0 +1,134 @@
+{
+  "method": "GET",
+  "path": "/api/account/detail",
+  "endpoint_key": "GET /api/account/detail",
+  "title": "查询后台账号详情",
+  "description": "校验账号管理权限后查询指定后台账号详情和绑定角色实时状态。",
+  "auth": "public",
+  "params": [
+    {
+      "name": "operator_session_token",
+      "type": "string",
+      "required": true,
+      "constraint": "必须属于启用账号，且操作者是超级管理员或拥有 admin_account.manage 权限；为空时可由管理端请求头兜底。",
+      "description": "操作者后台会话令牌，用于确认是否有账号管理权限。"
+    },
+    {
+      "name": "account_id",
+      "type": "string",
+      "required": true,
+      "constraint": "UUID 或 8-64 位短 ID。",
+      "description": "目标后台账号唯一标识，用于查询具体账号资料。"
+    }
+  ],
+  "response": {
+    "description": "返回账号详情和角色实时状态。",
+    "data_type": "object",
+    "fields": [
+      {
+        "name": "account_id",
+        "type": "string",
+        "description": "目标后台账号唯一标识。"
+      },
+      {
+        "name": "account",
+        "type": "string",
+        "description": "目标后台账号登录名。"
+      },
+      {
+        "name": "status",
+        "type": "string",
+        "description": "账号启停状态；现有实现暂为字符串格式，enabled=可登录，disabled=不可登录。",
+        "enum": {
+          "enabled": "启用",
+          "disabled": "停用"
+        }
+      },
+      {
+        "name": "is_super_admin",
+        "type": "boolean",
+        "description": "是否超级管理员，用于后台界面提示管理限制。"
+      },
+      {
+        "name": "roles",
+        "type": "array",
+        "description": "账号绑定角色在 role 模块中的实时状态。",
+        "fields": [
+          {
+            "name": "role_id",
+            "type": "string",
+            "description": "绑定角色唯一标识。"
+          },
+          {
+            "name": "role_status",
+            "type": "string",
+            "description": "角色实时状态；现有实现暂为字符串格式，enabled=启用，disabled=禁用，deleted=已删除，missing=角色不存在。",
+            "enum": {
+              "normal": "正常",
+              "deleted": "已软删除",
+              "cleaned": "对象已清理"
+            }
+          }
+        ]
+      },
+      {
+        "name": "created_at",
+        "type": "string",
+        "description": "账号创建时间；现有实现暂为 RFC3339 字符串格式。"
+      },
+      {
+        "name": "updated_at",
+        "type": "string",
+        "description": "账号最近更新时间；现有实现暂为 RFC3339 字符串格式。"
+      }
+    ],
+    "error_codes": [
+      {
+        "status": 2241,
+        "msg": "未登录"
+      },
+      {
+        "status": 2242,
+        "msg": "无账号管理权限"
+      },
+      {
+        "status": 2243,
+        "msg": "account_id 参数非法"
+      },
+      {
+        "status": 2244,
+        "msg": "账号不存在"
+      },
+      {
+        "status": 2245,
+        "msg": "查询账号详情失败或账号管理权限校验失败"
+      }
+    ]
+  },
+  "response_example": {
+    "status": 0,
+    "data": {
+      "account_id": "00000000-0000-0000-0000-000000000002",
+      "account": "operator",
+      "status": "enabled",
+      "is_super_admin": false,
+      "roles": [
+        {
+          "role_id": "00000000-0000-0000-0000-000000000003",
+          "role_status": "enabled"
+        }
+      ],
+      "created_at": "2026-05-31T06:00:00Z",
+      "updated_at": "2026-05-31T06:10:00Z"
+    },
+    "msg": "ok"
+  },
+  "rules": [
+    {
+      "category": "business",
+      "title": "查询后台账号详情 返回当前事实",
+      "body": "该查询接口必须按照当前代码和数据表返回稳定字段结构；分页、筛选、排序和空结果语义必须与 api-docs.json 保持一致。接口职责：校验账号管理权限后查询指定后台账号详情和绑定角色实时状态。",
+      "code_loc": "main.go:127"
+    }
+  ]
+}

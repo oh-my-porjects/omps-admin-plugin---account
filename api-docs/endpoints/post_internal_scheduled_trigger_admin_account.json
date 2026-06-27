@@ -1,0 +1,52 @@
+{
+  "method": "POST",
+  "path": "/_internal/scheduled-trigger/admin_account",
+  "endpoint_key": "POST /_internal/scheduled-trigger/admin_account",
+  "title": "内部定时任务触发",
+  "description": "供 runtime 内部手动触发模块注册的定时任务，并以 SSE 返回执行日志。",
+  "auth": "api_key",
+  "params": [
+    {
+      "name": "task_name",
+      "type": "string",
+      "required": true,
+      "constraint": "必须是 ScheduledTasks 表中已注册的任务名。",
+      "description": "要手动触发的定时任务名称，用于定位模块内任务函数。"
+    }
+  ],
+  "request_example": {
+    "task_name": "admin_account_selftest_task"
+  },
+  "response": {
+    "description": "成功时返回 text/event-stream 日志流，不使用统一 JSON data 包装。",
+    "data_type": "null",
+    "fields": [],
+    "error_codes": [
+      {
+        "status": 401,
+        "msg": "X-Internal-Token 缺失或不匹配时 HTTP 401 unauthorized"
+      },
+      {
+        "status": 400,
+        "msg": "请求体解析失败或 task_name 为空"
+      },
+      {
+        "status": 404,
+        "msg": "未注册的定时任务"
+      }
+    ]
+  },
+  "response_example": {
+    "status": 0,
+    "data": "data: [2026-05-31T06:00:00Z] 任务 admin_account_selftest_task 开始执行\n\ndata: admin_account selftest task executed\n\n",
+    "msg": ""
+  },
+  "rules": [
+    {
+      "category": "security",
+      "title": "内部定时任务触发 鉴权边界",
+      "body": "该接口按 auth=api_key 执行访问控制；未满足身份、内部令牌、后台会话或 API key 要求时必须拒绝主流程。接口职责：供 runtime 内部手动触发模块注册的定时任务，并以 SSE 返回执行日志。",
+      "code_loc": "scheduled_trigger.go:34"
+    }
+  ]
+}

@@ -1,0 +1,76 @@
+{
+  "module": "account",
+  "module_title": "账号管理",
+  "version": 1,
+  "endpoints": [
+    {
+      "key": "POST /api/account/login",
+      "file": "endpoints/post_api_account_login.json"
+    },
+    {
+      "key": "GET /api/account/me",
+      "file": "endpoints/get_api_account_me.json"
+    },
+    {
+      "key": "POST /api/account/_validate-password",
+      "file": "endpoints/post_api_account_validate_password.json"
+    },
+    {
+      "key": "POST /api/account/create",
+      "file": "endpoints/post_api_account_create.json"
+    },
+    {
+      "key": "GET /api/account/list",
+      "file": "endpoints/get_api_account_list.json"
+    },
+    {
+      "key": "GET /api/account/detail",
+      "file": "endpoints/get_api_account_detail.json"
+    },
+    {
+      "key": "PUT /api/account/update",
+      "file": "endpoints/put_api_account_update.json"
+    },
+    {
+      "key": "PUT /api/account/reset-password",
+      "file": "endpoints/put_api_account_reset_password.json"
+    },
+    {
+      "key": "POST /api/admin/account/delete",
+      "file": "endpoints/post_api_admin_account_delete.json"
+    },
+    {
+      "key": "POST /api/account/check-permission",
+      "file": "endpoints/post_api_account_check_permission.json"
+    },
+    {
+      "key": "POST /api/account/_create-temporary-admin",
+      "file": "endpoints/post_api_account_create_temporary_admin.json"
+    },
+    {
+      "key": "GET /api/account/hello",
+      "file": "endpoints/get_api_account_hello.json"
+    },
+    {
+      "key": "POST /api/account/admin/ping",
+      "file": "endpoints/post_api_account_admin_ping.json"
+    },
+    {
+      "key": "POST /_internal/method-call/admin_account",
+      "file": "endpoints/post_internal_method_call_admin_account.json"
+    },
+    {
+      "key": "POST /_internal/scheduled-trigger/admin_account",
+      "file": "endpoints/post_internal_scheduled_trigger_admin_account.json"
+    },
+    {
+      "key": "POST /_internal/selftest/admin_account",
+      "file": "endpoints/post_internal_selftest_admin_account.json"
+    }
+  ],
+  "ws_events": [],
+  "components": {
+    "schemas": [],
+    "enums": []
+  }
+}
