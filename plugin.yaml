@@ -6,7 +6,8 @@ name: "account"
 description: "账号公共模块 — 平台官方维护的基础设施模块，提供后台账号、登录、session、临时超管账号机制等能力。"
 
 # 公共模块标记（task/inner_plugin.md §4.1 + §7.1）
-# kind=builtin 时 admin-server 跳过 AI spec 生成，直接用模块仓库自带的 admin-web.yaml
+# kind=builtin 标识项目固有公共能力；V4 由 admin-server 根据本仓库的
+# admin-intents.yaml 和已验证 api-docs 编译，runtime 不再读取模块页面文件。
 kind: builtin
 
 # 模块需要的环境变量声明（重要，AI 必须填写）

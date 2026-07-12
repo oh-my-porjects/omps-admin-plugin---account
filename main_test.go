@@ -293,14 +293,15 @@ func TestAccountManageAndPermissionAcceptProjectAdminSessionToken(t *testing.T) 
 	p.handleAccountDetail(detailRec, detailReq)
 	var detailResp struct {
 		Status int `json:"status"`
-		Data   struct {
-			AccountID string `json:"account_id"`
+	Data   struct {
+			AccountID string   `json:"account_id"`
+			RoleIDs   []string `json:"role_ids"`
 		} `json:"data"`
 	}
 	if err := json.NewDecoder(detailRec.Body).Decode(&detailResp); err != nil {
 		t.Fatalf("decode detail response: %v", err)
 	}
-	if detailResp.Status != 0 || detailResp.Data.AccountID != accountID {
+	if detailResp.Status != 0 || detailResp.Data.AccountID != accountID || len(detailResp.Data.RoleIDs) != 1 || detailResp.Data.RoleIDs[0] != rootRoleID {
 		t.Fatalf("detail response status=%d data=%+v body=%s", detailResp.Status, detailResp.Data, detailRec.Body.String())
 	}
 

@@ -50,6 +50,11 @@
         "description": "是否超级管理员，用于后台界面提示管理限制。"
       },
       {
+        "name": "role_ids",
+        "type": "array",
+        "description": "当前账号已绑定角色 ID 列表；编辑账号时可直接作为角色多选组件的初始化值。"
+      },
+      {
         "name": "roles",
         "type": "array",
         "description": "账号绑定角色在 role 模块中的实时状态。",
@@ -112,6 +117,9 @@
       "account": "operator",
       "status": "enabled",
       "is_super_admin": false,
+      "role_ids": [
+        "00000000-0000-0000-0000-000000000003"
+      ],
       "roles": [
         {
           "role_id": "00000000-0000-0000-0000-000000000003",

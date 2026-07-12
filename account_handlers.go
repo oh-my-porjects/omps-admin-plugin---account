@@ -457,6 +457,7 @@ func (p *AdminAccountPlugin) accountDetailResponse(r *http.Request, acc accountR
 		"account":        acc.Username,
 		"status":         acc.Status,
 		"is_super_admin": acc.IsSuperAdmin,
+		"role_ids":       append([]string(nil), roleIDs...),
 		"roles":          roles,
 		"created_at":     acc.CreatedAt.Format(time.RFC3339),
 		"updated_at":     acc.UpdatedAt.Format(time.RFC3339),
