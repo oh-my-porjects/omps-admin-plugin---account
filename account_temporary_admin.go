@@ -1,26 +1,24 @@
 package main
 
-// account_temporary_admin.go — 临时超管账号机制（task/inner_plugin.md §4.4 + §6）
+// account_temporary_admin.go — 临时超管账号机制
 //
 // 设计意图：解决「鸡生蛋」问题 + 提供应急恢复
 //   1. 项目里始终有一条 is_temporary=true 的种子记录，ID 永远不变
-//   2. admin-server 通过 _create-temporary-admin 内部接口要求生成时，只重置
+//   2. admin-server 通过 runtime 管理面调用 CreateTemporaryAdmin 内部方法时，只重置
 //      account / password_hash / status=enabled / expires_at，ID 不变
 //   3. 同时只有一条临时超管记录（不会越长越大），重复调覆盖同一条
 //   4. 10 分钟后过期，后台 worker 自动 status=disabled，记录保留下次复用
 //
-// 接口约束：
-//   POST /api/account/_create-temporary-admin 必须带 X-Internal-Token header
-//   外部访问无 token → 401，仅 admin-server 进程能调
+// 信任边界：
+//   - 本模块不公开生成临时超管的业务 HTTP API。
+//   - runtime 先验证环境级 X-Internal-Token，再向本模块注入
+//     X-Internal-Authenticated: true；本模块只接受这个受控内部方法调用。
 
 import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
-	"encoding/json"
-	"net/http"
-	"os"
-	"strings"
+	"fmt"
 	"time"
 )
 
@@ -30,45 +28,33 @@ const temporarySuperAdminSeedID = "00000000-0000-0000-0000-0000000000fe"
 // 临时账号 TTL（10 分钟）
 const temporaryAdminTTL = 10 * time.Minute
 
-// handleCreateTemporaryAdmin POST /api/account/_create-temporary-admin
-//
-// admin-server 在「查看超管账号密码」按钮 + 项目部署完成事件里调用此接口。
-// 接口重置种子记录的 account / password_hash / status / expires_at，返回新账号 + 明文密码。
-func (p *AdminAccountPlugin) handleCreateTemporaryAdmin(w http.ResponseWriter, r *http.Request) {
-	// 鉴权：必须带 X-Internal-Token，并跟模块自己掌握的 token 匹配
-	got := r.Header.Get("X-Internal-Token")
-	want := strings.TrimSpace(os.Getenv("ADMIN_API_KEY"))
-	if want == "" {
-		// 兜底：ADMIN_API_KEY 没注入时也允许 RUNTIME_INTERNAL_TOKEN 兜底（开发态）
-		want = strings.TrimSpace(os.Getenv("RUNTIME_INTERNAL_TOKEN"))
-	}
-	if got == "" || want == "" || got != want {
-		writeJSON(w, 2401, nil, "未授权访问内部接口")
-		return
-	}
+type temporaryAdminCredential struct {
+	Account    string `json:"account"`
+	Password   string `json:"password"`
+	ExpiresAt  string `json:"expires_at"`
+	TTLSeconds int    `json:"ttl_seconds"`
+}
 
-	ctx := r.Context()
+// createTemporaryAdmin 重置固定种子记录并只向受控内部调用方返回一次明文凭证。
+// 调用方必须经过 runtime 管理面和模块 mux 的双重内部鉴权，不能由公开业务路由直接触发。
+func (p *AdminAccountPlugin) createTemporaryAdmin(ctx context.Context) (temporaryAdminCredential, error) {
 	if p.db == nil {
-		writeJSON(w, 2402, nil, "数据库未就绪")
-		return
+		return temporaryAdminCredential{}, fmt.Errorf("数据库未就绪")
 	}
 
 	// 生成 8 位随机账号 + 16 位随机密码（明文返回给运维一次，不存）
 	newAccount, err := randomHex(4) // 8 位 hex
 	if err != nil {
-		writeJSON(w, 2403, nil, "生成账号失败")
-		return
+		return temporaryAdminCredential{}, fmt.Errorf("生成账号失败: %w", err)
 	}
 	plainPassword, err := randomHex(8) // 16 位 hex
 	if err != nil {
-		writeJSON(w, 2403, nil, "生成密码失败")
-		return
+		return temporaryAdminCredential{}, fmt.Errorf("生成密码失败: %w", err)
 	}
 	// 复用模块原生 hashPassword（sha256 hex），跟 verifyPassword 兼容
 	passwordHash, err := hashPassword(plainPassword)
 	if err != nil {
-		writeJSON(w, 2403, nil, "密码加密失败")
-		return
+		return temporaryAdminCredential{}, fmt.Errorf("密码加密失败: %w", err)
 	}
 
 	expiresAt := time.Now().Add(temporaryAdminTTL)
@@ -90,16 +76,15 @@ func (p *AdminAccountPlugin) handleCreateTemporaryAdmin(w http.ResponseWriter, r
 		       updated_at = now()
 	`, newAccount, passwordHash, expiresAt, temporarySuperAdminSeedID)
 	if err != nil {
-		writeJSON(w, 2404, nil, "更新临时超管账号失败: "+err.Error())
-		return
+		return temporaryAdminCredential{}, fmt.Errorf("更新临时超管账号失败: %w", err)
 	}
 
-	writeJSON(w, 0, map[string]any{
-		"account":     newAccount,
-		"password":    plainPassword,
-		"expires_at":  expiresAt.Format(time.RFC3339),
-		"ttl_seconds": int(temporaryAdminTTL.Seconds()),
-	}, "ok")
+	return temporaryAdminCredential{
+		Account:    newAccount,
+		Password:   plainPassword,
+		ExpiresAt:  expiresAt.UTC().Format(time.RFC3339),
+		TTLSeconds: int(temporaryAdminTTL.Seconds()),
+	}, nil
 }
 
 // startTemporaryAdminWorker 启动后台 worker，每分钟扫一次过期的临时超管账号
@@ -151,6 +136,3 @@ func randomHex(n int) (string, error) {
 	}
 	return hex.EncodeToString(b), nil
 }
-
-// 编译期防止 json/encoding 未引用警告
-var _ = json.Marshal

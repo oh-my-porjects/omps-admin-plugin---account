@@ -17,12 +17,11 @@
 | PUT | /api/account/reset-password | 重置后台账号密码 | public |
 | POST | /api/admin/account/delete | 删除后台账号及角色绑定 | api_key |
 | POST | /api/account/check-permission | 校验会话是否拥有指定权限码 | public |
-| POST | /api/account/_create-temporary-admin | 内部生成 10 分钟有效临时超级管理员 | api_key |
 | GET | /api/account/hello | 返回模块名称和版本 | public |
 | POST | /api/account/admin/ping | 管理端探活 | api_key |
-| POST | /_internal/method-call/admin_account | Runtime 内部方法调用 | api_key |
-| POST | /_internal/scheduled-trigger/admin_account | Runtime 内部触发定时任务 | api_key |
-| POST | /_internal/selftest/admin_account | Runtime 内部执行模块自测 | api_key |
+| POST | /_internal/method-call/admin_account | Runtime 内部方法调用（含 `CreateTemporaryAdmin`） | runtime_internal |
+| POST | /_internal/scheduled-trigger/admin_account | Runtime 内部触发定时任务 | runtime_internal |
+| POST | /_internal/selftest/admin_account | Runtime 内部执行模块自测 | runtime_internal |
 
 ## 数据库
 
@@ -32,14 +31,13 @@
 ## 设计说明
 - 后台登录会话写入 Redis 并依赖 TTL 自动过期，数据库只保存账号和角色绑定，避免会话状态长期落库。
 - 账号管理操作优先使用请求体中的 `operator_session_token`，为空时可从管理端请求头兜底；权限要求是超级管理员或命中 `admin_account.manage`。
-- 当前实现强制每个普通账号只保留一个有效角色，创建和更新前会调用 role 模块确认角色存在且启用。
-- 临时超级管理员复用固定种子账号，只覆盖账号名、密码哈希、状态和过期时间；过期后 worker 禁用记录而不删除。
+- 当前实现强制每个普通账号只保留一个有效角色，创建和更新前会通过 Runtime 的进程内请求桥调用 role 模块确认角色存在且启用，不依赖本机回环地址或网关地址。
+- 临时超级管理员复用固定种子账号，只覆盖账号名、密码哈希、状态和过期时间；过期后 worker 禁用记录而不删除。生成操作仅能经 runtime 管理面的 `CreateTemporaryAdmin` 内部方法触发，模块不提供对应 `/api` 路由。
 - 状态和时间对外仍按旧实现返回字符串，例如 `enabled`、`disabled` 和 RFC3339 时间；文档需如实标注该边界。
 
 ## 环境变量
 - `ACCOUNT_SESSION_TTL_SECONDS` — 后台账号登录会话有效期秒数，默认值 `28800`。
 - `ADMIN_API_KEY` — 调用 role 模块和部分内部接口鉴权使用的平台管理密钥，默认值无。
-- `RUNTIME_ADDR` — 调用 role 模块时使用的 Runtime 地址，默认从请求 Host 推断，兜底 `127.0.0.1:8080`。
 - `REDIS_HOST_LAN` / `REDIS_HOST_WG` / `REDIS_PORT` / `REDIS_PASSWORD` / `REDIS_DB` — Redis 会话存储连接配置，端口默认 `6379`，库默认 `0`。
 
 ## 依赖模块

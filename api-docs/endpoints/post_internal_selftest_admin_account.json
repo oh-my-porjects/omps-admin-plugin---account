@@ -4,7 +4,7 @@
   "endpoint_key": "POST /_internal/selftest/admin_account",
   "title": "内部自测入口",
   "description": "供 runtime 内部触发模块内嵌 tests 目录中的 HTTP 自测用例。",
-  "auth": "api_key",
+  "auth": "runtime_internal",
   "params": [],
   "request_example": {},
   "response": {
@@ -128,7 +128,7 @@
     "error_codes": [
       {
         "status": 401,
-        "msg": "X-Internal-Token 缺失或不匹配时 HTTP 401 unauthorized"
+        "msg": "未经过 runtime 验证并注入 X-Internal-Authenticated 时 HTTP 401 unauthorized"
       },
       {
         "status": 1,
@@ -163,9 +163,9 @@
   "rules": [
     {
       "category": "security",
-      "title": "自测入口只接受内部令牌",
-      "body": "请求必须携带 X-Internal-Token，且与 RUNTIME_INTERNAL_TOKEN 匹配，否则直接返回 HTTP 401。",
-      "code_loc": "selftest.go:82-86"
+      "title": "自测入口只接受 runtime 受控内部调用",
+      "body": "runtime 负责验证 X-Internal-Token 并注入 X-Internal-Authenticated: true；模块只接受该可信标记，外部请求直接返回 HTTP 401。",
+      "code_loc": "selftest.go"
     },
     {
       "category": "concurrency",

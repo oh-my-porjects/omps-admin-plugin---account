@@ -92,6 +92,6 @@
 
 ## 安全
 
-- `/_internal/selftest` 端点要求 `X-Internal-Token` header 匹配 `RUNTIME_INTERNAL_TOKEN` 环境变量
+- `/_internal/selftest` 端点只接受 runtime 验证环境级 `X-Internal-Token` 后注入的 `X-Internal-Authenticated: true`；嵌入式自测执行器会按同一规则模拟该受控标记
 - 外部请求一律 401
 - panic 兜底：单个 case panic 算单个失败，不影响其它 case

@@ -16,7 +16,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"os"
 	"sync"
 	"time"
 )
@@ -39,8 +38,7 @@ func init() {
 }
 
 func handleScheduledTriggerInternal(w http.ResponseWriter, r *http.Request) {
-	expect := os.Getenv("RUNTIME_INTERNAL_TOKEN")
-	if expect == "" || r.Header.Get("X-Internal-Token") != expect {
+	if r.Header.Get("X-Internal-Authenticated") != "true" {
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}

@@ -27,6 +27,29 @@
       }
     },
     {
+      "name": "调用 CreateTemporaryAdmin 生成临时超级管理员",
+      "actor": "admin",
+      "depends_on": [],
+      "method": "POST",
+      "path": "/_internal/method-call/admin_account",
+      "headers": {
+        "X-Internal-Token": "${internal_token}"
+      },
+      "body": {
+        "method": "CreateTemporaryAdmin",
+        "args": {}
+      },
+      "expect_status": 200,
+      "expect_business_status": 0,
+      "expect_field": {
+        "status": 0,
+        "data.ttl_seconds": 600
+      },
+      "side_effect_tables": [
+        "account_accounts"
+      ]
+    },
+    {
       "name": "未注册方法返回业务错误",
       "actor": "admin",
       "depends_on": [],

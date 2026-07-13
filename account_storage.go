@@ -99,7 +99,7 @@ func (p *AdminAccountPlugin) initStorage(ctx context.Context) error {
 		$$`,
 		// 临时超管账号种子记录（task/inner_plugin.md §4.4 § §6.1）
 		// 项目级唯一一条 is_temporary=true 的记录，初始 disabled
-		// admin-server 调 _create-temporary-admin 接口时只重置 account/password_hash/status/expires_at，ID 永远不变
+		// admin-server 经 runtime 管理面调用 CreateTemporaryAdmin 内部方法时只重置 account/password_hash/status/expires_at，ID 永远不变
 		`INSERT INTO account_accounts (id, account, password_hash, status, is_super_admin, is_temporary)
 		 VALUES ('00000000-0000-0000-0000-0000000000fe', '__temporary_super_admin_seed__', '', 'disabled', TRUE, TRUE)
 		 ON CONFLICT (id) DO NOTHING`,

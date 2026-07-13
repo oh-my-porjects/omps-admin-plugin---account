@@ -7,7 +7,7 @@ package main
 // 通过/失败统计 + 每个 case 的请求/响应/期望对比。
 //
 // 安全：
-//   - 只有 X-Internal-Token 匹配 RUNTIME_INTERNAL_TOKEN 时才执行
+//   - 只有 runtime 在验证 X-Internal-Token 后注入 X-Internal-Authenticated: true 时才执行
 //   - panic 兜底：任何 case panic 算单个失败，不影响其它 case
 //   - 一次只跑一组测试（sync.Mutex 全局锁）避免并发
 //
@@ -88,9 +88,7 @@ type SelftestFile struct {
 }
 
 func handleSelftestInternal(w http.ResponseWriter, r *http.Request) {
-	// 内部 token 验证
-	expect := os.Getenv("RUNTIME_INTERNAL_TOKEN")
-	if expect == "" || r.Header.Get("X-Internal-Token") != expect {
+	if r.Header.Get("X-Internal-Authenticated") != "true" {
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
@@ -220,6 +218,7 @@ func runSingleCase(api, file string, idx int, c SelftestCase) map[string]any {
 	for k, v := range c.Headers {
 		req.Header.Set(k, applyTemplateVars(v, tmplVars))
 	}
+	markSelftestRuntimeInternalRequest(req)
 	if len(bodyBytes) > 0 && req.Header.Get("Content-Type") == "" {
 		req.Header.Set("Content-Type", "application/json")
 	}
@@ -279,6 +278,16 @@ func runSingleCase(api, file string, idx int, c SelftestCase) map[string]any {
 
 	result["passed"] = true
 	return result
+}
+
+// markSelftestRuntimeInternalRequest 让嵌入式自测按真实 runtime 边界执行。
+// 自测直接调用模块 handler，绕过了 runtime plugin manager；因此仅当用例中的
+// token 与测试进程注入的 RUNTIME_INTERNAL_TOKEN 相同时，模拟 manager 注入可信标记。
+func markSelftestRuntimeInternalRequest(req *http.Request) {
+	req.Header.Del("X-Internal-Authenticated")
+	if token := req.Header.Get("X-Internal-Token"); token != "" && token == os.Getenv("RUNTIME_INTERNAL_TOKEN") {
+		req.Header.Set("X-Internal-Authenticated", "true")
+	}
 }
 
 // lookupRouteHandler 在全局 Routes 表找匹配的 handler
@@ -344,11 +353,12 @@ func valuesEqual(a, b any) bool {
 }
 
 // templateVars 单 case 内的模板变量上下文：同名占位多次出现保证拿到同一个值
-//   ${ts}        当前秒级时间戳（10 位）
-//   ${ts_ms}     当前毫秒时间戳（13 位）
-//   ${rand}      默认 6 位 hex 随机串
-//   ${rand:N}    N 位 hex 随机串（N=2~32）
-//   ${uuid}      32 位 hex（不带横线）
+//
+//	${ts}        当前秒级时间戳（10 位）
+//	${ts_ms}     当前毫秒时间戳（13 位）
+//	${rand}      默认 6 位 hex 随机串
+//	${rand:N}    N 位 hex 随机串（N=2~32）
+//	${uuid}      32 位 hex（不带横线）
 //
 // 用例场景：注册接口要避免手机号/邮箱重复 → body 里写 "phone": "138${rand}"，
 // expect_field 里同步写 "data.phone": "138${rand}"，两次替换得到相同值，断言才能过。

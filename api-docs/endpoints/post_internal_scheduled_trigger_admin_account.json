@@ -4,7 +4,7 @@
   "endpoint_key": "POST /_internal/scheduled-trigger/admin_account",
   "title": "内部定时任务触发",
   "description": "供 runtime 内部手动触发模块注册的定时任务，并以 SSE 返回执行日志。",
-  "auth": "api_key",
+  "auth": "runtime_internal",
   "params": [
     {
       "name": "task_name",
@@ -24,7 +24,7 @@
     "error_codes": [
       {
         "status": 401,
-        "msg": "X-Internal-Token 缺失或不匹配时 HTTP 401 unauthorized"
+        "msg": "未经过 runtime 验证并注入 X-Internal-Authenticated 时 HTTP 401 unauthorized"
       },
       {
         "status": 400,
@@ -44,9 +44,9 @@
   "rules": [
     {
       "category": "security",
-      "title": "内部定时任务触发 鉴权边界",
-      "body": "该接口按 auth=api_key 执行访问控制；未满足身份、内部令牌、后台会话或 API key 要求时必须拒绝主流程。接口职责：供 runtime 内部手动触发模块注册的定时任务，并以 SSE 返回执行日志。",
-      "code_loc": "scheduled_trigger.go:34"
+      "title": "内部定时任务触发鉴权边界",
+      "body": "runtime 负责验证环境级 X-Internal-Token 并注入 X-Internal-Authenticated: true；模块不得自行比较原始 token。接口职责是供 runtime 内部手动触发模块注册的定时任务，并以 SSE 返回执行日志。",
+      "code_loc": "scheduled_trigger.go"
     }
   ]
 }

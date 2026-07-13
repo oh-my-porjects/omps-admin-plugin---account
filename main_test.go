@@ -20,37 +20,53 @@ func TestCreateTemporaryAdminRepairsSeedFlags(t *testing.T) {
 	}
 	defer db.Close()
 
-	t.Setenv("ADMIN_API_KEY", "test-internal-token")
 	mock.ExpectExec(`(?s)INSERT INTO account_accounts .*is_super_admin.*is_temporary.*ON CONFLICT.*is_super_admin = TRUE.*is_temporary = TRUE`).
 		WithArgs(sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), temporarySuperAdminSeedID).
 		WillReturnResult(sqlmock.NewResult(0, 1))
 
 	p := &AdminAccountPlugin{db: db}
-	req := httptest.NewRequest(http.MethodPost, "/api/account/_create-temporary-admin", nil)
-	req.Header.Set("X-Internal-Token", "test-internal-token")
-	rec := httptest.NewRecorder()
-
-	p.handleCreateTemporaryAdmin(rec, req)
-
-	var resp struct {
-		Status int `json:"status"`
-		Data   struct {
-			Account   string `json:"account"`
-			Password  string `json:"password"`
-			ExpiresAt string `json:"expires_at"`
-		} `json:"data"`
+	credential, err := p.createTemporaryAdmin(context.Background())
+	if err != nil {
+		t.Fatalf("createTemporaryAdmin: %v", err)
 	}
-	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
-		t.Fatalf("decode response: %v", err)
-	}
-	if resp.Status != 0 {
-		t.Fatalf("status=%d body=%s", resp.Status, rec.Body.String())
-	}
-	if resp.Data.Account == "" || resp.Data.Password == "" || resp.Data.ExpiresAt == "" {
-		t.Fatalf("temporary admin response incomplete: %+v", resp.Data)
+	if credential.Account == "" || credential.Password == "" || credential.ExpiresAt == "" || credential.TTLSeconds != int(temporaryAdminTTL.Seconds()) {
+		t.Fatalf("temporary admin credential incomplete: %+v", credential)
 	}
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Fatalf("sql expectations: %v", err)
+	}
+}
+
+func TestCreateTemporaryAdminIsInternalMethodOnly(t *testing.T) {
+	if _, ok := Routes["POST /api/account/_create-temporary-admin"]; ok {
+		t.Fatal("temporary admin must not be exposed as a public business route")
+	}
+	if _, ok := Methods["CreateTemporaryAdmin"]; !ok {
+		t.Fatal("CreateTemporaryAdmin must be registered as an internal method")
+	}
+}
+
+func TestInternalMethodCallRequiresRuntimeAuthenticatedMarker(t *testing.T) {
+	req := httptest.NewRequest(http.MethodPost, "/_internal/method-call/admin_account", strings.NewReader(`{"method":"AdminAccountSelftestEcho","args":{}}`))
+	req.Header.Set("X-Internal-Token", "caller-controlled")
+	rec := httptest.NewRecorder()
+
+	handleMethodCallInternal(rec, req)
+
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("status=%d body=%s, want unauthorized without runtime marker", rec.Code, rec.Body.String())
+	}
+}
+
+func TestInternalMethodCallAcceptsRuntimeAuthenticatedMarker(t *testing.T) {
+	req := httptest.NewRequest(http.MethodPost, "/_internal/method-call/admin_account", strings.NewReader(`{"method":"AdminAccountSelftestEcho","args":{"probe":"ok"}}`))
+	req.Header.Set("X-Internal-Authenticated", "true")
+	rec := httptest.NewRecorder()
+
+	handleMethodCallInternal(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status=%d body=%s", rec.Code, rec.Body.String())
 	}
 }
 
@@ -78,14 +94,11 @@ func TestPluginShutdown(t *testing.T) {
 	}
 }
 
-func TestRuntimeURLFallsBackFromAdminProxyHost(t *testing.T) {
+func TestAdminRoleRequestRequiresInternalBridge(t *testing.T) {
 	p := &AdminAccountPlugin{}
-	req := httptest.NewRequest(http.MethodGet, "/api/account/list", nil)
-	req.Host = "omps-shan-admin.link-api.com"
-	got := p.runtimeURL(req, "/api/role/detail")
-	want := "http://127.0.0.1:8080/api/role/detail"
-	if got != want {
-		t.Fatalf("runtimeURL = %s, want %s", got, want)
+	err := p.doAdminRoleRequest(context.Background(), nil, http.MethodGet, "/api/role/detail", nil, &adminRoleAPIResponse{})
+	if err == nil || !strings.Contains(err.Error(), "internal request bridge") {
+		t.Fatalf("doAdminRoleRequest error = %v, want missing internal bridge", err)
 	}
 }
 
@@ -250,7 +263,7 @@ func TestAccountManageAndPermissionAcceptProjectAdminSessionToken(t *testing.T) 
 	const token = "project-admin-token"
 	const accountID = "pD1BjYBEQbEc"
 	now := time.Now().UTC()
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	roleHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/api/role/detail":
 			writeTestJSON(t, w, 0, map[string]any{
@@ -265,10 +278,9 @@ func TestAccountManageAndPermissionAcceptProjectAdminSessionToken(t *testing.T) 
 		default:
 			t.Fatalf("unexpected role API path: %s", r.URL.Path)
 		}
-	}))
-	defer server.Close()
+	})
 	p := &AdminAccountPlugin{
-		runtimeAddr: server.URL,
+		internalRequest: newRoleInternalRequest(t, roleHandler),
 		accounts: map[string]accountRecord{
 			accountID: {
 				ID:           accountID,
@@ -293,7 +305,7 @@ func TestAccountManageAndPermissionAcceptProjectAdminSessionToken(t *testing.T) 
 	p.handleAccountDetail(detailRec, detailReq)
 	var detailResp struct {
 		Status int `json:"status"`
-	Data   struct {
+		Data   struct {
 			AccountID string   `json:"account_id"`
 			RoleIDs   []string `json:"role_ids"`
 		} `json:"data"`
@@ -405,7 +417,7 @@ func TestHandleAccountDeleteRejectsSelf(t *testing.T) {
 
 func TestHandleAccountDeleteRejectsNormalOperatorDeletingSuperAdmin(t *testing.T) {
 	now := time.Now().UTC()
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	roleHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/api/role/detail":
 			writeTestJSON(t, w, 0, map[string]any{"role_id": supportRoleID, "status": "enabled"})
@@ -414,10 +426,9 @@ func TestHandleAccountDeleteRejectsNormalOperatorDeletingSuperAdmin(t *testing.T
 		default:
 			t.Fatalf("unexpected role API path: %s", r.URL.Path)
 		}
-	}))
-	defer server.Close()
+	})
 	p := &AdminAccountPlugin{
-		runtimeAddr: server.URL,
+		internalRequest: newRoleInternalRequest(t, roleHandler),
 		accounts: map[string]accountRecord{
 			rootAccountID: {
 				ID:           rootAccountID,

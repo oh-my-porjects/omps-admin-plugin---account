@@ -1,11 +1,9 @@
 package main
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
-	"net"
 	"net/http"
 	"net/url"
 	"sort"
@@ -121,9 +119,9 @@ func (p *AdminAccountPlugin) roleDetailsAndPermissions(r *http.Request, roleIDs 
 }
 
 func (p *AdminAccountPlugin) adminRoleDetail(ctx context.Context, r *http.Request, roleID string) (adminRoleDetail, bool, error) {
-	endpoint := p.runtimeURL(r, "/api/role/detail") + "?role_id=" + url.QueryEscape(roleID)
+	target := "/api/role/detail?role_id=" + url.QueryEscape(roleID)
 	var resp adminRoleAPIResponse
-	if err := p.doAdminRoleRequest(ctx, http.MethodGet, endpoint, nil, &resp); err != nil {
+	if err := p.doAdminRoleRequest(ctx, r, http.MethodGet, target, nil, &resp); err != nil {
 		return adminRoleDetail{}, false, err
 	}
 	if resp.Status == 2122 || resp.Status == 2312 || resp.Status == 2322 || resp.Status == 2332 || resp.Status == 2342 {
@@ -142,7 +140,7 @@ func (p *AdminAccountPlugin) adminRoleDetail(ctx context.Context, r *http.Reques
 func (p *AdminAccountPlugin) adminRoleCheckPermission(ctx context.Context, r *http.Request, roleID, permissionCode string) (bool, string, error) {
 	body := map[string]string{"role_id": roleID, "permission_code": permissionCode}
 	var resp adminRoleAPIResponse
-	if err := p.doAdminRoleRequest(ctx, http.MethodPost, p.runtimeURL(r, "/api/role/check-permission"), body, &resp); err != nil {
+	if err := p.doAdminRoleRequest(ctx, r, http.MethodPost, "/api/role/check-permission", body, &resp); err != nil {
 		return false, "", err
 	}
 	if resp.Status == 2173 {
@@ -179,56 +177,38 @@ func normalizeRoleStatus(detail adminRoleDetail) string {
 	return status
 }
 
-func (p *AdminAccountPlugin) doAdminRoleRequest(ctx context.Context, method, endpoint string, body any, out any) error {
-	var payload *bytes.Reader
+func (p *AdminAccountPlugin) doAdminRoleRequest(ctx context.Context, r *http.Request, method, target string, body any, out any) error {
+	if p.internalRequest == nil {
+		return errors.New("runtime internal request bridge unavailable")
+	}
+	var payload []byte
 	if body == nil {
-		payload = bytes.NewReader(nil)
+		payload = nil
 	} else {
 		raw, err := json.Marshal(body)
 		if err != nil {
 			return err
 		}
-		payload = bytes.NewReader(raw)
+		payload = raw
 	}
 	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
-	req, err := http.NewRequestWithContext(ctx, method, endpoint, payload)
-	if err != nil {
-		return err
+	headers := make(http.Header)
+	if r != nil {
+		headers = r.Header.Clone()
 	}
 	if body != nil {
-		req.Header.Set("Content-Type", "application/json")
+		headers.Set("Content-Type", "application/json")
 	}
-	req.Header.Set("X-API-Key", p.adminAPIKey)
-	res, err := http.DefaultClient.Do(req)
+	if p.adminAPIKey != "" {
+		headers.Set("X-API-Key", p.adminAPIKey)
+	}
+	status, _, responseBody, err := p.internalRequest(ctx, method, target, payload, headers)
 	if err != nil {
 		return err
 	}
-	defer res.Body.Close()
-	if res.StatusCode < 200 || res.StatusCode >= 300 {
+	if status < http.StatusOK || status >= http.StatusMultipleChoices {
 		return errors.New("admin_role api http status failed")
 	}
-	return json.NewDecoder(res.Body).Decode(out)
-}
-
-func (p *AdminAccountPlugin) runtimeURL(r *http.Request, path string) string {
-	host := strings.TrimSpace(p.runtimeAddr)
-	if host == "" && r != nil {
-		host = strings.TrimSpace(r.Host)
-	}
-	if host == "" || host == "example.com" || strings.Contains(host, "link-api.com") || strings.Contains(host, "pages.dev") {
-		host = "127.0.0.1:8080"
-	}
-	if !strings.Contains(host, "://") {
-		host = "http://" + host
-	}
-	parsed, err := url.Parse(host)
-	if err == nil && parsed.Port() == "" {
-		if _, _, splitErr := net.SplitHostPort(parsed.Host); splitErr != nil {
-			parsed.Host = net.JoinHostPort(parsed.Hostname(), "8080")
-			host = parsed.String()
-		}
-	}
-	host = strings.TrimRight(host, "/")
-	return host + path
+	return json.Unmarshal(responseBody, out)
 }

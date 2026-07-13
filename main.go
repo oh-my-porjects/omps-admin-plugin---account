@@ -67,12 +67,13 @@ import (
 //   - Push / Emit / Broadcast / IsOnline: 模块给客户端主动发消息时调
 //   - RegisterAuth: 仅登录模块在 Init 里调一次，把鉴权回调交给 runtime
 type PluginContext struct {
-	DB             *sql.DB
-	Config         map[string]string
-	Logger         *slog.Logger
-	LifecycleCtx   context.Context
-	RegisterWorker func() func() // goroutine 起来时调用，返回 dereg 函数供 defer
-	IsUnloading    func() bool   // 查询模块是否处于 unloading（外部/定时任务可据此拒绝接新工作）
+	DB              *sql.DB
+	Config          map[string]string
+	Logger          *slog.Logger
+	LifecycleCtx    context.Context
+	RegisterWorker  func() func() // goroutine 起来时调用，返回 dereg 函数供 defer
+	IsUnloading     func() bool   // 查询模块是否处于 unloading（外部/定时任务可据此拒绝接新工作）
+	InternalRequest func(context.Context, string, string, []byte, http.Header) (int, http.Header, []byte, error)
 
 	// Push 给单个用户发"必送达"通知；模块业务里需要"通知用户"时调它
 	// 入 ws_outbox 表后立即返回，后台 worker 投递，离线用户上线补发
@@ -130,9 +131,6 @@ var Routes = map[string]http.HandlerFunc{
 	"PUT /api/account/reset-password":      handleResetPassword,
 	"POST /api/admin/account/delete":       handleAccountDelete,
 	"POST /api/account/check-permission":   handleCheckPermission,
-	// 临时超管账号机制（task/inner_plugin.md §4.4 + §6）
-	// admin-server 调（X-Internal-Token 鉴权），外部访问 401
-	"POST /api/account/_create-temporary-admin": handleCreateTemporaryAdmin,
 	// 前台接口示例（以 /api/ 开头）
 	"GET /api/account/hello": handleHello,
 	// 后台管理接口示例，鉴权由 Runtime 管理层统一处理。
@@ -144,12 +142,6 @@ var Routes = map[string]http.HandlerFunc{
 // handleHello 是包级 handler，通过全局 Plugin 变量访问插件实例
 func handleHello(w http.ResponseWriter, r *http.Request) {
 	Plugin.handleHello(w, r)
-}
-
-// handleCreateTemporaryAdmin 包级 handler，包装到 Plugin 实例方法
-// task/inner_plugin.md §6.2 临时超管账号生成接口
-func handleCreateTemporaryAdmin(w http.ResponseWriter, r *http.Request) {
-	Plugin.handleCreateTemporaryAdmin(w, r)
 }
 
 func handleAdminPing(w http.ResponseWriter, r *http.Request) {
@@ -219,7 +211,7 @@ type AdminAccountPlugin struct {
 	roles                              map[string][]string
 	sessionTTL                         time.Duration
 	adminAPIKey                        string
-	runtimeAddr                        string
+	internalRequest                    func(context.Context, string, string, []byte, http.Header) (int, http.Header, []byte, error)
 	lookupProjectAdminSessionAccountID func(ctx context.Context, token string) (string, error)
 
 	// WebSocket 推送 API 缓存（来自 PluginContext，业务函数想主动给客户端发消息时调）
@@ -251,7 +243,7 @@ func (p *AdminAccountPlugin) Init(ctx PluginContext) error {
 	p.isOnline = ctx.IsOnline
 	p.sessionTTL = readSessionTTL(ctx.Config)
 	p.adminAPIKey = ctx.Config["ADMIN_API_KEY"]
-	p.runtimeAddr = ctx.Config["RUNTIME_ADDR"]
+	p.internalRequest = ctx.InternalRequest
 	p.rdb = newRedisClient(ctx.Config)
 	// 建表、读 config；不要建 mux 或注册路由
 	if err := p.initStorage(ctx.LifecycleCtx); err != nil {

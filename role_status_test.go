@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bytes"
+	"context"
 	"encoding/json"
 	"log/slog"
 	"net/http"
@@ -209,17 +211,26 @@ func TestEvaluateRolePermissionReturnsAllRoleStatesAndDeniesInvalidRole(t *testi
 
 func newRoleBackedPlugin(t *testing.T, handler http.HandlerFunc) (*AdminAccountPlugin, *http.Request, func()) {
 	t.Helper()
-	server := httptest.NewServer(handler)
 	p := &AdminAccountPlugin{
-		logger:      slog.Default(),
-		sessionTTL:  time.Hour,
-		runtimeAddr: server.URL,
-		accounts:    map[string]accountRecord{},
-		roles:       map[string][]string{},
+		logger:          slog.Default(),
+		sessionTTL:      time.Hour,
+		internalRequest: newRoleInternalRequest(t, handler),
+		accounts:        map[string]accountRecord{},
+		roles:           map[string][]string{},
 	}
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
-	req.Host = strings.TrimPrefix(server.URL, "http://")
-	return p, req, server.Close
+	return p, req, func() {}
+}
+
+func newRoleInternalRequest(t *testing.T, handler http.HandlerFunc) func(context.Context, string, string, []byte, http.Header) (int, http.Header, []byte, error) {
+	t.Helper()
+	return func(ctx context.Context, method, target string, body []byte, headers http.Header) (int, http.Header, []byte, error) {
+		req := httptest.NewRequest(method, target, bytes.NewReader(body)).WithContext(ctx)
+		req.Header = headers.Clone()
+		rec := httptest.NewRecorder()
+		handler(rec, req)
+		return rec.Code, rec.Header().Clone(), rec.Body.Bytes(), nil
+	}
 }
 
 func (p *AdminAccountPlugin) seedAccount(t *testing.T, account, password, status string, superAdmin bool, roleIDs []string) {

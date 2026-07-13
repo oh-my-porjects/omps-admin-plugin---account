@@ -44,10 +44,6 @@
       "file": "endpoints/post_api_account_check_permission.json"
     },
     {
-      "key": "POST /api/account/_create-temporary-admin",
-      "file": "endpoints/post_api_account_create_temporary_admin.json"
-    },
-    {
       "key": "GET /api/account/hello",
       "file": "endpoints/get_api_account_hello.json"
     },

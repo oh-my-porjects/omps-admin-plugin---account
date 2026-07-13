@@ -14,31 +14,37 @@ package main
 // 模块开发者：在 init() 里把方法注册到 Methods 表（key=方法名 → MethodFunc）
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
-	"os"
 )
 
-// MethodFunc 方法签名：入参 args（任意 JSON 解码后的 map），返回任意值（会被 JSON 序列化）
-type MethodFunc func(args map[string]any) (any, error)
+// MethodFunc 方法签名：入参为请求上下文和 JSON 解码后的参数，返回值会被 JSON 序列化。
+type MethodFunc func(ctx context.Context, args map[string]any) (any, error)
 
 // Methods 全局方法表，模块开发者在 init 时注册
 var Methods = map[string]MethodFunc{}
 
 func init() {
 	Routes["POST /_internal/method-call/admin_account"] = handleMethodCallInternal
-	Methods["AdminAccountSelftestEcho"] = func(args map[string]any) (any, error) {
+	Methods["AdminAccountSelftestEcho"] = func(_ context.Context, args map[string]any) (any, error) {
 		return map[string]any{
 			"module": "admin_account",
 			"echo":   args,
 		}, nil
 	}
+	Methods["CreateTemporaryAdmin"] = func(ctx context.Context, args map[string]any) (any, error) {
+		if len(args) != 0 {
+			return nil, errors.New("CreateTemporaryAdmin 不接受参数")
+		}
+		return Plugin.createTemporaryAdmin(ctx)
+	}
 }
 
 func handleMethodCallInternal(w http.ResponseWriter, r *http.Request) {
-	expect := os.Getenv("RUNTIME_INTERNAL_TOKEN")
-	if expect == "" || r.Header.Get("X-Internal-Token") != expect {
+	if r.Header.Get("X-Internal-Authenticated") != "true" {
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
@@ -65,7 +71,7 @@ func handleMethodCallInternal(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, 1, nil, "未注册的方法: "+req.Method)
 		return
 	}
-	result, err := fn(req.Args)
+	result, err := fn(r.Context(), req.Args)
 	if err != nil {
 		writeJSON(w, 1, nil, err.Error())
 		return
