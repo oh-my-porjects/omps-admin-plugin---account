@@ -26,7 +26,7 @@ relationships:
     detail_capability_key: role.endpoint.get_api_role_detail
     lookup_mode: batch
     cardinality: many-to-many
-    missing_behavior: show_source
+    missing_behavior: show_error
 
 # 账号模块属于所有项目固有的系统管理能力。页面只引用 api-docs 中已验证的
 # endpoint；完整 Spec 由 admin-server 编译，runtime 不读取本文件。
