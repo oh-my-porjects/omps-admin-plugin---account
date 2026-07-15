@@ -1,6 +1,33 @@
 $schema: admin-ui-intent/v1
 module: account
 
+entities:
+  - key: account.account
+    module: account
+    title: { fallback: 后台账号 }
+    key_field: account_id
+    fields:
+      - { key: account_id, type: string }
+      - { key: account, type: string }
+      - { key: role_ids, type: array }
+      - { key: status, type: string }
+
+relationships:
+  - key: account.account.roles
+    module: account
+    source_entity: account.account
+    source_field: role_ids
+    target_entity: role.role
+    target_key_field: role_id
+    display_fields: [name, status]
+    lookup_capability_key: role.endpoint.get_api_role_batch_lookup
+    lookup_input_field: role_ids
+    lookup_items_path: data.items
+    detail_capability_key: role.endpoint.get_api_role_detail
+    lookup_mode: batch
+    cardinality: many-to-many
+    missing_behavior: show_source
+
 # 账号模块属于所有项目固有的系统管理能力。页面只引用 api-docs 中已验证的
 # endpoint；完整 Spec 由 admin-server 编译，runtime 不读取本文件。
 pages:
@@ -17,6 +44,7 @@ pages:
     order: 100
     template: { id: standard-list, version: 1.0.0 }
     size: md
+    entity: account.account
     query_capability: account.endpoint.get_api_account_list
     pagination: true
     selection: true
@@ -41,42 +69,200 @@ pages:
         renderer: enum
         min_width: 96
       - field: role_ids
-        title: { fallback: 角色 ID }
+        title: { fallback: 角色 }
+        renderer: relation
+        relation_key: account.account.roles
+        click_action: account.list.action.open_role
         min_width: 180
       - field: is_super_admin
         title: { fallback: 超级管理员 }
-        renderer: enum
+        renderer: tag
         min_width: 112
       - field: updated_at
         title: { fallback: 更新时间 }
         min_width: 180
     actions:
+      - key: account.list.action.open_role
+        type: open-dialog
+        source: row
+        title: { fallback: 查看角色 }
+        relation_key: account.account.roles
       - key: account.list.action.create
-        type: navigate
+        type: open-dialog
         source: page
         title: { fallback: 新建账号 }
-        target_page_key: account.create
+        overlay:
+          type: open-dialog
+          title: { fallback: 新建后台账号 }
+          template: { id: standard-form, version: 1.0.0 }
+          size: md
+          fields:
+            - binding: account
+              label: { fallback: 账号名 }
+              control: input
+              required: true
+              placeholder: { fallback: 请输入 4-32 位账号名 }
+            - binding: password
+              label: { fallback: 初始密码 }
+              control: password
+              required: true
+              placeholder: { fallback: 请输入 6-32 位初始密码 }
+              validation:
+                - { kind: min_length, value: 6 }
+                - { kind: max_length, value: 32 }
+            - binding: status
+              label: { fallback: 状态 }
+              control: select
+              required: true
+              options:
+                - value: enabled
+                  label: { fallback: 启用 }
+                - value: disabled
+                  label: { fallback: 停用 }
+            - binding: role_ids
+              label: { fallback: 绑定角色 }
+              control: multi-select
+              required: true
+              max_selections: 1
+              placeholder: { fallback: 请选择一个启用角色 }
+              options_capability: role.endpoint.get_api_role_list
+              options_query:
+                page: { source: literal, value: 1 }
+                page_size: { source: literal, value: 100 }
+                status: { source: literal, value: enabled }
+              options_items_path: data.items
+              options_value_field: role_id
+              options_label_fields: [name]
+          submit_action:
+            key: account.list.action.create.submit
+            type: submit
+            source: form
+            title: { fallback: 创建账号 }
+            capability_key: account.endpoint.post_api_account_create
+            danger: confirm
+            confirm:
+              title: { fallback: 确认创建后台账号？ }
+              description: { fallback: 新账号会立即按所选状态和角色绑定生效。 }
+            bindings:
+              account: { source: form, key: account, required: true }
+              password: { source: form, key: password, required: true }
+              status: { source: form, key: status, required: true, fallback: enabled }
+              role_ids: { source: form, key: role_ids, required: true, fallback: [] }
       - key: account.list.action.detail
-        type: navigate
+        type: open-dialog
         source: row
         title: { fallback: 查看 }
-        target_page_key: account.detail
         bindings:
           account_id: { source: row, key: account_id, required: true }
+        overlay:
+          type: open-dialog
+          title: { fallback: 后台账号详情 }
+          template: { id: standard-detail, version: 1.0.0 }
+          size: md
+          detail_capability: account.endpoint.get_api_account_detail
+          fields:
+            - binding: account_id
+              label: { fallback: 账号 ID }
+            - binding: account
+              label: { fallback: 账号名 }
+            - binding: status
+              label: { fallback: 状态 }
+            - binding: is_super_admin
+              label: { fallback: 超级管理员 }
+            - binding: roles
+              label: { fallback: 角色状态 }
+              control: json
+            - binding: created_at
+              label: { fallback: 创建时间 }
+            - binding: updated_at
+              label: { fallback: 更新时间 }
       - key: account.list.action.edit
-        type: navigate
+        type: open-dialog
         source: row
         title: { fallback: 编辑 }
-        target_page_key: account.edit
         bindings:
           account_id: { source: row, key: account_id, required: true }
+        overlay:
+          type: open-dialog
+          title: { fallback: 编辑后台账号 }
+          template: { id: standard-form, version: 1.0.0 }
+          size: md
+          detail_capability: account.endpoint.get_api_account_detail
+          fields:
+            - binding: account
+              label: { fallback: 账号名 }
+              control: input
+              read_only: true
+            - binding: status
+              label: { fallback: 状态 }
+              control: select
+              required: true
+              options:
+                - value: enabled
+                  label: { fallback: 启用 }
+                - value: disabled
+                  label: { fallback: 停用 }
+            - binding: role_ids
+              label: { fallback: 绑定角色 }
+              control: multi-select
+              required: true
+              max_selections: 1
+              placeholder: { fallback: 请选择一个启用角色 }
+              options_capability: role.endpoint.get_api_role_list
+              options_query:
+                page: { source: literal, value: 1 }
+                page_size: { source: literal, value: 100 }
+                status: { source: literal, value: enabled }
+              options_items_path: data.items
+              options_value_field: role_id
+              options_label_fields: [name]
+          submit_action:
+            key: account.list.action.edit.submit
+            type: submit
+            source: form
+            title: { fallback: 保存账号 }
+            capability_key: account.endpoint.put_api_account_update
+            danger: confirm
+            confirm:
+              title: { fallback: 确认更新后台账号？ }
+              description: { fallback: 修改状态或角色绑定会立即影响该账号的登录与权限。 }
+            bindings:
+              account_id: { source: overlay, key: account_id, required: true }
+              status: { source: form, key: status, required: true }
+              role_ids: { source: form, key: role_ids, required: true }
       - key: account.list.action.reset_password
-        type: navigate
+        type: open-dialog
         source: row
         title: { fallback: 重置密码 }
-        target_page_key: account.reset_password
         bindings:
           account_id: { source: row, key: account_id, required: true }
+        overlay:
+          type: open-dialog
+          title: { fallback: 重置后台账号密码 }
+          template: { id: standard-form, version: 1.0.0 }
+          size: sm
+          fields:
+            - binding: new_password
+              label: { fallback: 新密码 }
+              control: password
+              required: true
+              placeholder: { fallback: 请输入 6-32 位新密码 }
+              validation:
+                - { kind: min_length, value: 6 }
+                - { kind: max_length, value: 32 }
+          submit_action:
+            key: account.list.action.reset_password.submit
+            type: submit
+            source: form
+            title: { fallback: 重置密码 }
+            capability_key: account.endpoint.put_api_account_reset_password
+            danger: confirm
+            confirm:
+              title: { fallback: 确认重置密码？ }
+              description: { fallback: 新密码会立即替换当前后台账号密码。 }
+            bindings:
+              account_id: { source: overlay, key: account_id, required: true }
+              new_password: { source: form, key: new_password, required: true }
       - key: account.list.action.delete
         type: submit
         source: row
@@ -88,179 +274,3 @@ pages:
           description: { fallback: 删除后账号将无法登录，角色绑定也会被清理。 }
         bindings:
           account_id: { source: row, key: account_id, required: true }
-
-  - key: account.detail
-    title: { fallback: 后台账号详情 }
-    route: /system/accounts/detail
-    menu_hidden: true
-    menu_key: system.account_detail
-    menu_title: { fallback: 后台账号详情 }
-    order: 101
-    template: { id: standard-detail, version: 1.0.0 }
-    size: md
-    detail_capability: account.endpoint.get_api_account_detail
-    fields:
-      - binding: account_id
-        label: { fallback: 账号 ID }
-      - binding: account
-        label: { fallback: 账号名 }
-      - binding: status
-        label: { fallback: 状态 }
-      - binding: is_super_admin
-        label: { fallback: 超级管理员 }
-      - binding: roles
-        label: { fallback: 角色状态 }
-        control: json
-      - binding: created_at
-        label: { fallback: 创建时间 }
-      - binding: updated_at
-        label: { fallback: 更新时间 }
-    actions:
-      - key: account.detail.action.edit
-        type: navigate
-        source: page
-        title: { fallback: 编辑账号 }
-        target_page_key: account.edit
-        bindings:
-          account_id: { source: route, key: account_id, required: true }
-
-  - key: account.create
-    title: { fallback: 新建后台账号 }
-    route: /system/accounts/create
-    menu_hidden: true
-    menu_key: system.account_create
-    menu_title: { fallback: 新建后台账号 }
-    order: 102
-    template: { id: standard-form, version: 1.0.0 }
-    size: md
-    fields:
-      - binding: account
-        label: { fallback: 账号名 }
-        control: input
-        required: true
-        placeholder: { fallback: 请输入 4-32 位账号名 }
-      - binding: password
-        label: { fallback: 初始密码 }
-        control: password
-        required: true
-        placeholder: { fallback: 请输入 6-32 位初始密码 }
-      - binding: status
-        label: { fallback: 状态 }
-        control: select
-        required: true
-        options:
-          - value: enabled
-            label: { fallback: 启用 }
-          - value: disabled
-            label: { fallback: 停用 }
-      - binding: role_ids
-        label: { fallback: 绑定角色 }
-        control: multi-select
-        required: true
-        max_selections: 1
-        placeholder: { fallback: 请选择一个启用角色 }
-        options_capability: role.endpoint.get_api_role_list
-        options_query:
-          page: { source: literal, value: 1 }
-          page_size: { source: literal, value: 100 }
-          status: { source: literal, value: enabled }
-        options_items_path: data.items
-        options_value_field: role_id
-        options_label_fields: [name]
-    actions:
-      - key: account.create.action.submit
-        type: submit
-        source: form
-        title: { fallback: 创建账号 }
-        capability_key: account.endpoint.post_api_account_create
-        danger: confirm
-        confirm:
-          title: { fallback: 确认创建后台账号？ }
-          description: { fallback: 新账号会立即按所选状态和角色绑定生效。 }
-        bindings:
-          account: { source: form, key: account, required: true }
-          password: { source: form, key: password, required: true }
-          status: { source: form, key: status, required: true, fallback: enabled }
-          role_ids: { source: form, key: role_ids, required: true, fallback: [] }
-
-  - key: account.edit
-    title: { fallback: 编辑后台账号 }
-    route: /system/accounts/edit
-    menu_hidden: true
-    menu_key: system.account_edit
-    menu_title: { fallback: 编辑后台账号 }
-    order: 103
-    template: { id: standard-form, version: 1.0.0 }
-    size: md
-    detail_capability: account.endpoint.get_api_account_detail
-    fields:
-      - binding: account
-        label: { fallback: 账号名 }
-        control: input
-        read_only: true
-      - binding: status
-        label: { fallback: 状态 }
-        control: select
-        required: true
-        options:
-          - value: enabled
-            label: { fallback: 启用 }
-          - value: disabled
-            label: { fallback: 停用 }
-      - binding: role_ids
-        label: { fallback: 绑定角色 }
-        control: multi-select
-        required: true
-        max_selections: 1
-        placeholder: { fallback: 请选择一个启用角色 }
-        options_capability: role.endpoint.get_api_role_list
-        options_query:
-          page: { source: literal, value: 1 }
-          page_size: { source: literal, value: 100 }
-          status: { source: literal, value: enabled }
-        options_items_path: data.items
-        options_value_field: role_id
-        options_label_fields: [name]
-    actions:
-      - key: account.edit.action.submit
-        type: submit
-        source: form
-        title: { fallback: 保存账号 }
-        capability_key: account.endpoint.put_api_account_update
-        danger: confirm
-        confirm:
-          title: { fallback: 确认更新后台账号？ }
-          description: { fallback: 修改状态或角色绑定会立即影响该账号的登录与权限。 }
-        bindings:
-          account_id: { source: route, key: account_id, required: true }
-          status: { source: form, key: status, required: true }
-          role_ids: { source: form, key: role_ids, required: true }
-
-  - key: account.reset_password
-    title: { fallback: 重置后台账号密码 }
-    route: /system/accounts/reset-password
-    menu_hidden: true
-    menu_key: system.account_reset_password
-    menu_title: { fallback: 重置后台账号密码 }
-    order: 104
-    template: { id: standard-form, version: 1.0.0 }
-    size: sm
-    fields:
-      - binding: new_password
-        label: { fallback: 新密码 }
-        control: password
-        required: true
-        placeholder: { fallback: 请输入 6-32 位新密码 }
-    actions:
-      - key: account.reset_password.action.submit
-        type: submit
-        source: form
-        title: { fallback: 重置密码 }
-        capability_key: account.endpoint.put_api_account_reset_password
-        danger: confirm
-        confirm:
-          title: { fallback: 确认重置密码？ }
-          description: { fallback: 新密码会立即替换当前后台账号密码。 }
-        bindings:
-          account_id: { source: route, key: account_id, required: true }
-          new_password: { source: form, key: new_password, required: true }
